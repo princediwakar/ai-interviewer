@@ -42,7 +42,6 @@ const EmptyState = () => (
 const QuestionCard = ({ 
   question, 
   questionIndex, 
-  roundIndex, 
   globalIndex, 
   state, 
   onShowGuidance, 
@@ -51,7 +50,6 @@ const QuestionCard = ({
 }: {
   question: InterviewRound['questions'][0];
   questionIndex: number;
-  roundIndex: number;
   globalIndex: number;
   state: QuestionState;
   onShowGuidance: (index: number) => void;
@@ -242,7 +240,6 @@ export const InterviewPanel = ({
                             key={qIndex}
                             question={q}
                             questionIndex={qIndex}
-                            roundIndex={roundIndex}
                             globalIndex={globalIndex}
                             state={state}
                             onShowGuidance={onShowGuidance}

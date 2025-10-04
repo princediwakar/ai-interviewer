@@ -200,13 +200,13 @@ export function generatePDF(data: ExportData): void {
   
   // Title
   doc.setFontSize(20);
-  doc.setFont(undefined, 'bold');
+  doc.setFont('helvetica', 'bold');
   doc.text('Interview Questions', margin, yPosition);
   yPosition += 10;
   
   // Date
   doc.setFontSize(12);
-  doc.setFont(undefined, 'normal');
+  doc.setFont('helvetica', 'normal');
   doc.text(`Generated on: ${exportDate}`, margin, yPosition);
   yPosition += 20;
   
@@ -222,14 +222,14 @@ export function generatePDF(data: ExportData): void {
     
     // Round title
     doc.setFontSize(16);
-    doc.setFont(undefined, 'bold');
+    doc.setFont('helvetica', 'bold');
     const roundTitle = `Round ${roundIndex + 1}: ${round.name}`;
     doc.text(roundTitle, margin, yPosition);
     yPosition += 8;
     
     // Round description
     doc.setFontSize(10);
-    doc.setFont(undefined, 'italic');
+    doc.setFont('helvetica', 'italic');
     const descriptionLines = doc.splitTextToSize(round.description, maxWidth);
     doc.text(descriptionLines, margin, yPosition);
     yPosition += descriptionLines.length * 5 + 10;
@@ -247,12 +247,12 @@ export function generatePDF(data: ExportData): void {
       
       // Question number and text
       doc.setFontSize(12);
-      doc.setFont(undefined, 'bold');
+      doc.setFont('helvetica', 'bold');
       doc.text(`Question ${qIndex + 1}`, margin, yPosition);
       yPosition += 8;
       
       doc.setFontSize(11);
-      doc.setFont(undefined, 'normal');
+      doc.setFont('helvetica', 'normal');
       const questionLines = doc.splitTextToSize(question.text, maxWidth);
       doc.text(questionLines, margin, yPosition);
       yPosition += questionLines.length * 5 + 5;
@@ -260,11 +260,11 @@ export function generatePDF(data: ExportData): void {
       // Tips if available
       if (state?.guidance) {
         doc.setFontSize(10);
-        doc.setFont(undefined, 'bold');
+        doc.setFont('helvetica', 'bold');
         doc.text('💡 Tips:', margin, yPosition);
         yPosition += 5;
         
-        doc.setFont(undefined, 'normal');
+        doc.setFont('helvetica', 'normal');
         const tipsLines = doc.splitTextToSize(state.guidance, maxWidth);
         doc.text(tipsLines, margin, yPosition);
         yPosition += tipsLines.length * 4 + 5;
@@ -273,11 +273,11 @@ export function generatePDF(data: ExportData): void {
       // Sample answer if available
       if (state?.fullAnswer) {
         doc.setFontSize(10);
-        doc.setFont(undefined, 'bold');
+        doc.setFont('helvetica', 'bold');
         doc.text('📝 Sample Answer:', margin, yPosition);
         yPosition += 5;
         
-        doc.setFont(undefined, 'normal');
+        doc.setFont('helvetica', 'normal');
         const answerLines = doc.splitTextToSize(state.fullAnswer, maxWidth);
         doc.text(answerLines, margin, yPosition);
         yPosition += answerLines.length * 4 + 10;

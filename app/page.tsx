@@ -65,7 +65,7 @@ export default function Home() {
     setBackgroundInfo(selectedSample.background);
   };
 
-  const handleExport = (format: 'print') => {
+  const handleExport = () => {
     if (interviewRounds.length === 0) return;
 
     const exportData: ExportData = {
