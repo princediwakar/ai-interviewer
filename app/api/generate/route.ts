@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
                     const contentPayload = JSON.stringify({ type: 'content', content });
                     controller.enqueue(new TextEncoder().encode(`data: ${contentPayload}\n\n`));
                   }
-                } catch (e) {
+                } catch {
                   // Ignore parsing errors for incomplete JSON chunks
                 }
               }

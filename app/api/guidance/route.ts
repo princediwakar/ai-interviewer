@@ -85,7 +85,7 @@ Please provide personalized answer guidance for this question.`
       } else {
         throw new Error('Invalid response format');
       }
-    } catch (parseError) {
+    } catch {
       return new Response(
         JSON.stringify({ error: 'Failed to parse AI response' }),
         { status: 500, headers: { 'Content-Type': 'application/json' } }

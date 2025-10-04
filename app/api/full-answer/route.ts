@@ -86,7 +86,7 @@ Please provide a complete interview answer as if you are this candidate.`
       } else {
         throw new Error('Invalid response format');
       }
-    } catch (parseError) {
+    } catch {
       return new Response(
         JSON.stringify({ error: 'Failed to parse AI response' }),
         { status: 500, headers: { 'Content-Type': 'application/json' } }

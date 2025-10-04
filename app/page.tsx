@@ -223,7 +223,6 @@ export default function Home() {
   const [interviewRounds, setInterviewRounds] = useState<InterviewRound[]>([]);
   const [questionStates, setQuestionStates] = useState<QuestionState[]>([]);
   const [hasStarted, setHasStarted] = useState(false);
-  const [streamingContent, setStreamingContent] = useState('');
   const [parsedContent, setParsedContent] = useState('');
   const [generationError, setGenerationError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'setup' | 'questions'>('setup');
@@ -249,15 +248,14 @@ export default function Home() {
             try {
               const data = JSON.parse(line.slice(6));
               if (data.type === 'content') {
-                setStreamingContent(prev => {
+                setParsedContent(prev => {
                   const newContent = prev + data.content;
-                  setParsedContent(convertJsonToMarkdown(newContent));
-                  return newContent;
+                  return convertJsonToMarkdown(newContent);
                 });
               } else if (data.type === 'complete') {
                 const { rounds } = data.data;
                 const tagOptions = ['Leadership', 'Strategy', 'Technical'];
-                const enhancedRounds = rounds.map((round: any, i: number) => ({
+                const enhancedRounds = rounds.map((round: { name: string; description: string; questions: string[] }) => ({
                   ...round,
                   icon: '',
                   questions: round.questions.map((q: string) => ({
@@ -276,7 +274,6 @@ export default function Home() {
                   isLoadingGuidance: false,
                   isLoadingFullAnswer: false
                 }))));
-                setStreamingContent('');
                 setParsedContent('');
                 setGenerationState('idle');
                 setGenerationError(null);
@@ -300,7 +297,6 @@ export default function Home() {
     setHasStarted(true);
     setInterviewRounds([]);
     setQuestionStates([]);
-    setStreamingContent('');
     setParsedContent('');
     setGenerationError(null);
     
@@ -329,7 +325,7 @@ export default function Home() {
     const showKey = `show${type.charAt(0).toUpperCase() + type.slice(1)}` as keyof QuestionState;
     const isLoadingKey = `isLoading${type.charAt(0).toUpperCase() + type.slice(1)}` as keyof QuestionState;
 
-    if ((state as any)[contentKey]) {
+    if (state[contentKey as keyof QuestionState]) {
       setQuestionStates(prev => prev.map((s, i) => i === index ? { ...s, [showKey]: !s[showKey] } : s));
       return;
     }
@@ -377,7 +373,6 @@ export default function Home() {
     setQuestionStates([]);
     setHasStarted(false);
     setGenerationState('idle');
-    setStreamingContent('');
     setParsedContent('');
     setGenerationError(null);
     setActiveTab('setup');
