@@ -9,6 +9,7 @@ import { InterviewPanel } from '../components/InterviewPanel';
 import { useInterviewGeneration } from '../hooks/useInterviewGeneration';
 import { useQuestionActions } from '../hooks/useQuestionActions';
 import { Logo } from './Logo'
+import Link from 'next/link'
 
 export default function Home() {
   const [jobDescription, setJobDescription] = useState('');
@@ -98,7 +99,12 @@ export default function Home() {
                 <h1 className="text-xl font-semibold text-gray-900">AceTheRole</h1>
               </div>
 
-              {hasStarted && <button onClick={handleReset} className="text-gray-600 hover:text-gray-900 text-sm font-medium px-3 py-1.5 rounded hover:bg-gray-100 transition-colors">New session</button>}
+              <div className="flex items-center gap-4">
+                <Link href="/question-bank" className="text-gray-600 hover:text-gray-900 text-sm font-medium px-3 py-1.5 rounded hover:bg-gray-100 transition-colors">
+                  Question Bank
+                </Link>
+                {hasStarted && <button onClick={handleReset} className="text-gray-600 hover:text-gray-900 text-sm font-medium px-3 py-1.5 rounded hover:bg-gray-100 transition-colors">New session</button>}
+              </div>
             </div>
           </div>
         </header>
