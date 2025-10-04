@@ -1,10 +1,17 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import type { InterviewRound, QuestionState, GenerationState } from '../types/interview';
+import type { InterviewRound, QuestionState, GenerationState, Question } from '../types/interview';
 import { convertJsonToMarkdown, parseMarkdownToHtml } from '../utils/interviewUtils';
+import { SAMPLE_JOB_DESCRIPTION, SAMPLE_BACKGROUND } from '../lib/sampleData';
+import { useSessionPersistence } from '../hooks/useLocalStorage';
+import { generateMarkdownExport, downloadMarkdown, generatePrintableHTML, printHTML, type ExportData } from '../utils/exportUtils';
+import { ErrorBoundary } from '../components/ErrorBoundary';
+import { useRetry, retryConditions } from '../hooks/useRetry';
+import { ApiService } from '../utils/apiService';
+import { getQuestionTypeConfig, getDifficultyConfig, formatEstimatedTime } from '../utils/questionUtils';
 
-const SetupPanel = ({ jobDescription, setJobDescription, backgroundInfo, setBackgroundInfo, onGenerate, generationState, hasStarted }: {
+const SetupPanel = ({ jobDescription, setJobDescription, backgroundInfo, setBackgroundInfo, onGenerate, generationState, hasStarted, onTrySample, isRetrying, attemptCount }: {
   jobDescription: string;
   setJobDescription: (v: string) => void;
   backgroundInfo: string;
@@ -12,18 +19,56 @@ const SetupPanel = ({ jobDescription, setJobDescription, backgroundInfo, setBack
   onGenerate: () => void;
   generationState: GenerationState;
   hasStarted: boolean;
+  onTrySample: () => void;
+  isRetrying: boolean;
+  attemptCount: number;
 }) => (
   <div className="flex flex-col h-full">
-    <div className="p-4 border-b border-gray-200 flex items-center justify-between h-14">
+    <div className="p-4 border-b border-gray-200 flex items-center justify-between h-auto">
       <div className="flex flex-col">
-        <h2 className="text-sm font-semibold text-gray-900">Setup</h2>
-        <p className="text-gray-500 text-xs">Job description required; background optional</p>
+        <h2 className="text-sm font-semibold text-gray-900">Setup Your Interview Prep</h2>
+        <p className="text-gray-500 text-xs">Get personalized questions based on your job and background</p>
       </div>
+      {!hasStarted && (
+        <button
+          onClick={onTrySample}
+          className="text-xs bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 px-3 py-1.5 rounded-md hover:from-blue-100 hover:to-indigo-100 transition-colors border border-blue-200 font-medium"
+        >
+          Try Sample
+        </button>
+      )}
     </div>
     
     <div className="flex-1 overflow-y-auto p-4 space-y-6">
-      <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-900 block">Job Description <span className="text-red-500">*</span></label>
+      {!hasStarted && (
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-lg border border-blue-100">
+          <div className="flex items-center space-x-2 mb-2">
+            <div className="w-5 h-5 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-semibold">1</div>
+            <p className="text-blue-900 text-sm font-medium">Add job description</p>
+          </div>
+          <div className="flex items-center space-x-2 mb-2">
+            <div className="w-5 h-5 bg-blue-400 text-white rounded-full flex items-center justify-center text-xs font-semibold">2</div>
+            <p className="text-blue-800 text-sm">Add your background (optional)</p>
+          </div>
+          <div className="flex items-center space-x-2">
+            <div className="w-5 h-5 bg-blue-400 text-white rounded-full flex items-center justify-center text-xs font-semibold">3</div>
+            <p className="text-blue-800 text-sm">Generate personalized questions</p>
+          </div>
+        </div>
+      )}
+
+      <div className="space-y-2 job-description-area">
+        <div className="flex items-center justify-between">
+          <label className="text-sm font-medium text-gray-900 block">Job Description <span className="text-red-500">*</span></label>
+          {!jobDescription.trim() && !hasStarted && (
+            <button
+              onClick={() => setJobDescription(SAMPLE_JOB_DESCRIPTION)}
+              className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+            >
+              Use sample
+            </button>
+          )}
+        </div>
         <textarea
           rows={6}
           className="w-full p-3 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none text-gray-900 placeholder-gray-500 text-sm leading-relaxed"
@@ -31,11 +76,26 @@ const SetupPanel = ({ jobDescription, setJobDescription, backgroundInfo, setBack
           value={jobDescription}
           onChange={(e) => setJobDescription(e.target.value)}
         />
-        {!jobDescription.trim() && <p className="text-xs text-red-500">Required for generation</p>}
+        {!jobDescription.trim() && (
+          <p className="text-xs text-red-500">Job description is required to generate questions</p>
+        )}
+        {jobDescription.trim() && (
+          <p className="text-xs text-green-600">✓ Job description added ({jobDescription.length} characters)</p>
+        )}
       </div>
 
-      <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-900 block">Your Background</label>
+      <div className="space-y-2 background-area">
+        <div className="flex items-center justify-between">
+          <label className="text-sm font-medium text-gray-900 block">Your Background</label>
+          {!backgroundInfo.trim() && !hasStarted && (
+            <button
+              onClick={() => setBackgroundInfo(SAMPLE_BACKGROUND)}
+              className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+            >
+              Use sample
+            </button>
+          )}
+        </div>
         <textarea
           rows={4}
           className="w-full p-3 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none text-gray-900 placeholder-gray-500 text-sm leading-relaxed"
@@ -43,7 +103,12 @@ const SetupPanel = ({ jobDescription, setJobDescription, backgroundInfo, setBack
           value={backgroundInfo}
           onChange={(e) => setBackgroundInfo(e.target.value)}
         />
-        <p className="text-xs text-gray-500">Helps personalize—skip for general prep</p>
+        <p className="text-xs text-gray-500">
+          {backgroundInfo.trim() 
+            ? `✓ Background added (${backgroundInfo.length} characters) - Questions will be personalized`
+            : "Add your background for personalized questions, or skip for general prep"
+          }
+        </p>
       </div>
     </div>
 
@@ -51,12 +116,14 @@ const SetupPanel = ({ jobDescription, setJobDescription, backgroundInfo, setBack
       <button
         onClick={onGenerate}
         disabled={generationState === 'streaming' || !jobDescription.trim()}
-        className="w-full bg-blue-600 text-white py-3 rounded font-medium hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm"
+        className="generate-button w-full bg-blue-600 text-white py-3 rounded font-medium hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm"
       >
         {generationState === 'streaming' ? (
           <div className="flex items-center justify-center space-x-2">
             <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-            <span>Generating...</span>
+            <span>
+              {isRetrying ? `Retrying (${attemptCount}/3)...` : 'Generating...'}
+            </span>
           </div>
         ) : (
           'Generate Questions'
@@ -72,7 +139,7 @@ const SetupPanel = ({ jobDescription, setJobDescription, backgroundInfo, setBack
   </div>
 );
 
-const InterviewPanel = ({ interviewRounds, questionStates, generationState, parsedContent, onShowGuidance, onShowFullAnswer, onCopy }: {
+const InterviewPanel = ({ interviewRounds, questionStates, generationState, parsedContent, onShowGuidance, onShowFullAnswer, onCopy, onExport }: {
   interviewRounds: InterviewRound[];
   questionStates: QuestionState[];
   generationState: GenerationState;
@@ -80,6 +147,7 @@ const InterviewPanel = ({ interviewRounds, questionStates, generationState, pars
   onShowGuidance: (index: number) => void;
   onShowFullAnswer: (index: number) => void;
   onCopy: (text: string) => void;
+  onExport?: (format: 'markdown' | 'print') => void;
 }) => {
   const outputRef = useRef<HTMLDivElement>(null);
 
@@ -107,10 +175,28 @@ const InterviewPanel = ({ interviewRounds, questionStates, generationState, pars
 
   return (
     <div className="flex flex-col h-full">
-      <div className="p-4 border-b border-gray-200 h-14 sticky top-0 z-10">
-        <div className="flex flex-col">
-          <h2 className="text-sm font-semibold text-gray-900">Interview Questions</h2>
-          {interviewRounds.length > 0 && <p className="text-gray-500 text-xs">{interviewRounds.length} Rounds • {questionStates.length} Questions</p>}
+      <div className="p-4 border-b border-gray-200 h-auto sticky top-0 z-10 bg-white">
+        <div className="flex items-center justify-between">
+          <div className="flex flex-col">
+            <h2 className="text-sm font-semibold text-gray-900">Interview Questions</h2>
+            {interviewRounds.length > 0 && <p className="text-gray-500 text-xs">{interviewRounds.length} Rounds • {questionStates.length} Questions</p>}
+          </div>
+          {interviewRounds.length > 0 && onExport && (
+            <div className="flex space-x-2">
+              <button
+                onClick={() => onExport('markdown')}
+                className="text-xs bg-blue-50 text-blue-700 px-3 py-1.5 rounded-md hover:bg-blue-100 transition-colors border border-blue-200 font-medium"
+              >
+                Export
+              </button>
+              <button
+                onClick={() => onExport('print')}
+                className="text-xs bg-green-50 text-green-700 px-3 py-1.5 rounded-md hover:bg-green-100 transition-colors border border-green-200 font-medium"
+              >
+                Print
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -132,10 +218,28 @@ const InterviewPanel = ({ interviewRounds, questionStates, generationState, pars
                 return (
                   <section key={roundIndex} className="space-y-6">
                     <div className="p-4 rounded border">
-                      <h3 className="text-sm font-semibold text-gray-900 mb-1">
-                        Round {roundIndex + 1}: {round.name}
-                      </h3>
-                      <p className="text-xs text-gray-600 leading-relaxed">{round.description}</p>
+                      <div className="flex items-start justify-between mb-2">
+                        <h3 className="text-sm font-semibold text-gray-900">
+                          Round {roundIndex + 1}: {round.name}
+                        </h3>
+                        {round.estimatedDuration && (
+                          <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                            📅 {formatEstimatedTime(round.estimatedDuration)}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-gray-600 leading-relaxed mb-2">{round.description}</p>
+                      <div className="flex items-center text-xs text-gray-500">
+                        <span>{round.questions.length} questions</span>
+                        {round.questions.length > 0 && (
+                          <>
+                            <span className="mx-2">•</span>
+                            <span>
+                              Avg {Math.round(round.questions.reduce((acc, q) => acc + (q.estimatedTime || 5), 0) / round.questions.length)}m per question
+                            </span>
+                          </>
+                        )}
+                      </div>
                     </div>
 
                     <div className="space-y-6">
@@ -145,34 +249,72 @@ const InterviewPanel = ({ interviewRounds, questionStates, generationState, pars
                         if (!state) return null;
 
                         return (
-                          <article key={qIndex} className="p-4 rounded border space-y-3">
+                          <article key={qIndex} className="p-4 rounded-lg border border-gray-200 space-y-3 hover:border-gray-300 transition-colors bg-white shadow-sm">
                             <div className="flex items-start space-x-3">
-                              <div className="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-semibold flex-shrink-0 mt-0.5">
+                              <div className="w-7 h-7 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-full flex items-center justify-center text-sm font-semibold flex-shrink-0 mt-0.5 shadow-sm">
                                 {qIndex + 1}
                               </div>
                               <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium text-gray-900 leading-relaxed">{q.text}</p>
-                                {q.personalized && (
-                                  <span className="inline-block px-2 py-0.5 bg-blue-100 text-blue-800 text-xs rounded-full mt-1">Personalized</span>
-                                )}
+                                <p className="text-sm font-medium text-gray-900 leading-relaxed md:text-base">{q.text}</p>
+                                <div className="flex flex-wrap items-center gap-2 mt-2">
+                                  {(() => {
+                                    const typeConfig = getQuestionTypeConfig(state.type);
+                                    const difficultyConfig = getDifficultyConfig(state.difficulty);
+                                    return (
+                                      <>
+                                        <span className={`inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full border ${typeConfig.color}`}>
+                                          <span className="mr-1">{typeConfig.icon}</span>
+                                          {typeConfig.label}
+                                        </span>
+                                        <span className={`inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full border ${difficultyConfig.color}`}>
+                                          {difficultyConfig.label}
+                                        </span>
+                                        {state.estimatedTime && (
+                                          <span className="inline-flex items-center px-2 py-0.5 text-xs text-gray-600 bg-gray-100 rounded-full border border-gray-200">
+                                            ⏱️ {formatEstimatedTime(state.estimatedTime)}
+                                          </span>
+                                        )}
+                                        {state.personalized && (
+                                          <span className="inline-flex items-center px-2 py-0.5 text-xs text-indigo-700 bg-indigo-100 rounded-full border border-indigo-200">
+                                            🎯 Personalized
+                                          </span>
+                                        )}
+                                      </>
+                                    );
+                                  })()}
+                                </div>
                               </div>
                             </div>
 
-                            <div className="flex space-x-2">
+                            <div className="flex flex-col sm:flex-row gap-2">
                               <button
                                 onClick={() => onShowGuidance(globalIndex)}
                                 disabled={state.isLoadingGuidance}
-                                className="px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded transition-colors disabled:opacity-50"
+                                className="flex-1 sm:flex-none px-4 py-2.5 text-sm font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors disabled:opacity-50 touch-manipulation"
                               >
-                                {state.isLoadingGuidance ? 'Loading...' : (state.showGuidance ? 'Hide Tips' : 'Tips')}
+                                {state.isLoadingGuidance ? (
+                                  <span className="flex items-center justify-center">
+                                    <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mr-2"></div>
+                                    Loading...
+                                  </span>
+                                ) : (
+                                  <>💡 {state.showGuidance ? 'Hide Tips' : 'Get Tips'}</>
+                                )}
                               </button>
                               
                               <button
                                 onClick={() => onShowFullAnswer(globalIndex)}
                                 disabled={state.isLoadingFullAnswer}
-                                className="px-3 py-1.5 text-xs font-medium text-green-700 bg-green-50 hover:bg-green-100 rounded transition-colors disabled:opacity-50"
+                                className="flex-1 sm:flex-none px-4 py-2.5 text-sm font-medium text-green-700 bg-green-50 hover:bg-green-100 rounded-lg transition-colors disabled:opacity-50 touch-manipulation"
                               >
-                                {state.isLoadingFullAnswer ? 'Loading...' : (state.showFullAnswer ? 'Hide Answer' : 'Answer')}
+                                {state.isLoadingFullAnswer ? (
+                                  <span className="flex items-center justify-center">
+                                    <div className="w-4 h-4 border-2 border-green-600 border-t-transparent rounded-full animate-spin mr-2"></div>
+                                    Loading...
+                                  </span>
+                                ) : (
+                                  <>📝 {state.showFullAnswer ? 'Hide Answer' : 'Sample Answer'}</>
+                                )}
                               </button>
                             </div>
 
@@ -226,6 +368,14 @@ export default function Home() {
   const [parsedContent, setParsedContent] = useState('');
   const [generationError, setGenerationError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'setup' | 'questions'>('setup');
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
+
+  const { saveSession } = useSessionPersistence();
+  const { executeWithRetry, isRetrying, attemptCount } = useRetry({
+    maxAttempts: 3,
+    delay: 2000,
+    retryCondition: retryConditions.networkAndServerErrors
+  });
 
   const handleStreamingResponse = async (response: Response) => {
     const reader = response.body?.getReader();
@@ -254,29 +404,45 @@ export default function Home() {
                 });
               } else if (data.type === 'complete') {
                 const { rounds } = data.data;
-                const tagOptions = ['Leadership', 'Strategy', 'Technical'];
-                const enhancedRounds = rounds.map((round: { name: string; description: string; questions: string[] }) => ({
+                const enhancedRounds = rounds.map((round: InterviewRound) => ({
                   ...round,
                   icon: '',
-                  questions: round.questions.map((q: string) => ({
-                    text: q,
-                    tags: [tagOptions[Math.floor(Math.random() * tagOptions.length)]],
-                    personalized: backgroundInfo.trim() ? Math.random() > 0.5 : false
+                  questions: round.questions.map((q: Question) => ({
+                    text: q.text || q, // Handle both new and old format
+                    type: q.type || 'behavioral',
+                    difficulty: q.difficulty || 'mid',
+                    estimatedTime: q.estimatedTime || 5,
+                    tags: q.tags || [q.type || 'General'],
+                    personalized: q.personalized ?? (backgroundInfo.trim() ? Math.random() > 0.5 : false)
                   }))
                 }));
-                setInterviewRounds(enhancedRounds);
-                setQuestionStates(enhancedRounds.flatMap((round: InterviewRound) => round.questions.map((q: { text: string; tags: string[]; personalized?: boolean }) => ({
+                const newQuestionStates = enhancedRounds.flatMap((round: InterviewRound) => round.questions.map((q: Question) => ({
                   question: q.text,
+                  type: q.type,
+                  difficulty: q.difficulty,
+                  estimatedTime: q.estimatedTime,
                   tags: q.tags,
                   personalized: q.personalized,
                   showGuidance: false,
                   showFullAnswer: false,
                   isLoadingGuidance: false,
                   isLoadingFullAnswer: false
-                }))));
+                })));
+                
+                setInterviewRounds(enhancedRounds);
+                setQuestionStates(newQuestionStates);
                 setParsedContent('');
                 setGenerationState('idle');
                 setGenerationError(null);
+                
+                // Auto-save session
+                const sessionId = saveSession({
+                  jobDescription: jobDescription.trim(),
+                  backgroundInfo: backgroundInfo.trim(),
+                  interviewRounds: enhancedRounds,
+                  questionStates: newQuestionStates
+                });
+                setCurrentSessionId(sessionId);
                 return;
               } else if (data.type === 'error') throw new Error(data.error);
             } catch {}
@@ -301,25 +467,25 @@ export default function Home() {
     setGenerationError(null);
     
     try {
-      const response = await fetch('/api/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          jobDescription: jobDescription.trim(), 
-          backgroundInfo: backgroundInfo.trim() || undefined
-        }),
+      await executeWithRetry(async () => {
+        const { response } = await ApiService.generateQuestions(
+          jobDescription.trim(),
+          backgroundInfo.trim() || undefined
+        );
+        await handleStreamingResponse(response);
       });
-
-      if (!response.ok) throw new Error('Failed to generate questions');
-      await handleStreamingResponse(response);
     } catch (error) {
       console.error('Error:', error);
-      setGenerationError(error instanceof Error ? error.message : 'Failed to generate interview questions. Please try again.');
+      const errorMessage = error instanceof Error 
+        ? error.message 
+        : 'Failed to generate interview questions. Please try again.';
+      
+      setGenerationError(errorMessage);
       setGenerationState('idle');
     }
   };
 
-  const toggleExpandable = async (index: number, type: 'guidance' | 'fullAnswer', apiEndpoint: '/api/guidance' | '/api/full-answer') => {
+  const toggleExpandable = async (index: number, type: 'guidance' | 'fullAnswer') => {
     const state = questionStates[index];
     const contentKey = type;
     const showKey = `show${type.charAt(0).toUpperCase() + type.slice(1)}` as keyof QuestionState;
@@ -333,34 +499,39 @@ export default function Home() {
     setQuestionStates(prev => prev.map((s, i) => i === index ? { ...s, [isLoadingKey]: true } : s));
 
     try {
-      const response = await fetch(apiEndpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          question: state.question,
-          jobDescription: jobDescription.trim(),
-          backgroundInfo: backgroundInfo.trim(),
-        }),
-      });
+      await executeWithRetry(async () => {
+        const apiCall = type === 'guidance' 
+          ? ApiService.getGuidance
+          : ApiService.getFullAnswer;
 
-      if (!response.ok) throw new Error(`Failed to get ${type}`);
-      const data = await response.json();
-      const newContent = type === 'guidance' ? data.guidance : data.answer;
-      setQuestionStates(prev => prev.map((s, i) => i === index ? {
-        ...s,
-        [contentKey]: newContent,
-        [showKey]: true,
-        [isLoadingKey]: false
-      } : s));
+        const data = await apiCall(
+          state.question,
+          jobDescription.trim(),
+          backgroundInfo.trim()
+        );
+
+        const newContent = type === 'guidance' ? (data as { guidance: string }).guidance : (data as { answer: string }).answer;
+        setQuestionStates(prev => prev.map((s, i) => i === index ? {
+          ...s,
+          [contentKey]: newContent,
+          [showKey]: true,
+          [isLoadingKey]: false
+        } : s));
+      });
     } catch (error) {
       console.error(`Error getting ${type}:`, error);
       setQuestionStates(prev => prev.map((s, i) => i === index ? { ...s, [isLoadingKey]: false } : s));
-      alert(`Failed to get ${type}. Please try again.`);
+      
+      const errorMessage = error instanceof Error 
+        ? error.message 
+        : `Failed to get ${type}. Please try again.`;
+      
+      alert(errorMessage);
     }
   };
 
-  const handleShowGuidance = (index: number) => toggleExpandable(index, 'guidance', '/api/guidance');
-  const handleShowFullAnswer = (index: number) => toggleExpandable(index, 'fullAnswer', '/api/full-answer');
+  const handleShowGuidance = (index: number) => toggleExpandable(index, 'guidance');
+  const handleShowFullAnswer = (index: number) => toggleExpandable(index, 'fullAnswer');
 
   const handleCopy = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -378,8 +549,41 @@ export default function Home() {
     setActiveTab('setup');
   };
 
+  const handleTrySample = () => {
+    setJobDescription(SAMPLE_JOB_DESCRIPTION);
+    setBackgroundInfo(SAMPLE_BACKGROUND);
+  };
+
+  const handleExport = (format: 'markdown' | 'print') => {
+    if (interviewRounds.length === 0) return;
+
+    const exportData: ExportData = {
+      jobDescription,
+      backgroundInfo,
+      interviewRounds,
+      questionStates,
+      exportDate: new Date().toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      })
+    };
+
+    if (format === 'markdown') {
+      const markdown = generateMarkdownExport(exportData);
+      const filename = `interview-prep-${new Date().toISOString().split('T')[0]}.md`;
+      downloadMarkdown(markdown, filename);
+    } else if (format === 'print') {
+      const html = generatePrintableHTML(exportData);
+      printHTML(html);
+    }
+  };
+
   return (
-    <div className="h-screen flex flex-col bg-white">
+    <ErrorBoundary>
+      <div className="h-screen flex flex-col bg-white">
       <header className="border-b border-gray-200 flex-shrink-0">
         <div className="px-4 py-3">
           <div className="flex items-center justify-between">
@@ -389,25 +593,10 @@ export default function Home() {
         </div>
       </header>
 
-      <div className="flex-1 flex overflow-hidden">
-        {/* Mobile Tabs */}
-        <div className="md:hidden flex border-b border-gray-200">
-          <button
-            onClick={() => setActiveTab('setup')}
-            className={`flex-1 py-3 px-4 text-sm font-medium ${activeTab === 'setup' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
-          >
-            Setup
-          </button>
-          <button
-            onClick={() => setActiveTab('questions')}
-            className={`flex-1 py-3 px-4 text-sm font-medium ${activeTab === 'questions' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
-          >
-            Questions
-          </button>
-        </div>
-
-        {activeTab === 'setup' || !hasStarted ? (
-          <div className="w-full h-full md:w-1/2 border-r border-gray-200">
+      <div className="flex-1 overflow-hidden">
+        {/* Desktop Split View */}
+        <div className="hidden md:flex w-full h-full">
+          <div className="w-1/2 border-r border-gray-200">
             <SetupPanel
               jobDescription={jobDescription}
               setJobDescription={setJobDescription}
@@ -416,12 +605,12 @@ export default function Home() {
               onGenerate={handleGenerate}
               generationState={generationState}
               hasStarted={hasStarted}
+              onTrySample={handleTrySample}
+              isRetrying={isRetrying}
+              attemptCount={attemptCount}
             />
           </div>
-        ) : null}
-
-        <div className={`w-full h-full ${hasStarted ? 'md:w-1/2' : 'w-full'}`}>
-          {hasStarted && (
+          <div className="interview-panel w-1/2">
             <InterviewPanel
               interviewRounds={interviewRounds}
               questionStates={questionStates}
@@ -430,8 +619,59 @@ export default function Home() {
               onShowGuidance={handleShowGuidance}
               onShowFullAnswer={handleShowFullAnswer}
               onCopy={handleCopy}
+              onExport={handleExport}
             />
-          )}
+          </div>
+        </div>
+
+        {/* Mobile View - Tabs and Content */}
+        <div className="md:hidden flex flex-col w-full h-full">
+          {/* Mobile Tabs */}
+          <div className="flex border-b border-gray-200 bg-white flex-shrink-0">
+            <button
+              onClick={() => setActiveTab('setup')}
+              className={`flex-1 py-3 px-4 text-sm font-medium transition-colors ${activeTab === 'setup' ? 'border-b-2 border-blue-500 text-blue-600 bg-blue-50' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}
+            >
+              📝 Setup
+            </button>
+            <button
+              onClick={() => setActiveTab('questions')}
+              className={`flex-1 py-3 px-4 text-sm font-medium transition-colors ${activeTab === 'questions' ? 'border-b-2 border-blue-500 text-blue-600 bg-blue-50' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}
+            >
+              💬 Questions {interviewRounds.length > 0 && `(${questionStates.length})`}
+            </button>
+          </div>
+
+          {/* Mobile Content */}
+          <div className="flex-1 overflow-hidden">
+            {activeTab === 'setup' ? (
+              <SetupPanel
+                jobDescription={jobDescription}
+                setJobDescription={setJobDescription}
+                backgroundInfo={backgroundInfo}
+                setBackgroundInfo={setBackgroundInfo}
+                onGenerate={handleGenerate}
+                generationState={generationState}
+                hasStarted={hasStarted}
+                onTrySample={handleTrySample}
+                isRetrying={isRetrying}
+                attemptCount={attemptCount}
+              />
+            ) : (
+              <div className="interview-panel w-full h-full">
+                <InterviewPanel
+                  interviewRounds={interviewRounds}
+                  questionStates={questionStates}
+                  generationState={generationState}
+                  parsedContent={parsedContent}
+                  onShowGuidance={handleShowGuidance}
+                  onShowFullAnswer={handleShowFullAnswer}
+                  onCopy={handleCopy}
+                  onExport={handleExport}
+                />
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -449,20 +689,51 @@ export default function Home() {
       )}
 
       {/* Error Handling */}
-      {generationError && (
-        <div className="fixed top-4 right-4 border border-red-200 rounded p-4 max-w-sm z-50 shadow-lg bg-white">
-          <div className="mb-2">
-            <h3 className="font-semibold text-red-900 text-sm">Error</h3>
-          </div>
-          <p className="text-red-700 text-sm mb-2">{generationError}</p>
-          <button 
-            onClick={handleGenerate}
-            className="text-blue-600 text-sm hover:underline font-medium"
-          >
-            Retry
-          </button>
+      {(generationError || isRetrying) && (
+        <div className="fixed top-4 right-4 border rounded p-4 max-w-sm z-50 shadow-lg bg-white">
+          {isRetrying ? (
+            <div className="border-blue-200">
+              <div className="mb-2">
+                <h3 className="font-semibold text-blue-900 text-sm">Retrying...</h3>
+              </div>
+              <p className="text-blue-700 text-sm mb-2">
+                Attempt {attemptCount} of 3. Having trouble connecting, retrying automatically...
+              </p>
+              <div className="flex items-center space-x-2">
+                <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                <span className="text-blue-600 text-sm">Please wait</span>
+              </div>
+            </div>
+          ) : generationError && (
+            <div className="border-red-200">
+              <div className="mb-2">
+                <h3 className="font-semibold text-red-900 text-sm">Error</h3>
+              </div>
+              <p className="text-red-700 text-sm mb-2">{generationError}</p>
+              {attemptCount > 0 && (
+                <p className="text-gray-600 text-xs mb-3">
+                  Tried {attemptCount} time{attemptCount > 1 ? 's' : ''} unsuccessfully
+                </p>
+              )}
+              <div className="flex space-x-2">
+                <button 
+                  onClick={handleGenerate}
+                  className="text-blue-600 text-sm hover:underline font-medium"
+                >
+                  Try Again
+                </button>
+                <button 
+                  onClick={() => setGenerationError(null)}
+                  className="text-gray-500 text-sm hover:underline font-medium"
+                >
+                  Dismiss
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
-    </div>
+      </div>
+    </ErrorBoundary>
   );
 }
