@@ -1,5 +1,6 @@
 // utils/exportUtils.ts
 import type { InterviewRound, QuestionState } from '../types/interview';
+import { jsPDF } from 'jspdf';
 
 export interface ExportData {
   jobDescription: string;
@@ -72,14 +73,14 @@ export function downloadMarkdown(content: string, filename: string) {
 }
 
 export function generatePrintableHTML(data: ExportData): string {
-  const { jobDescription, backgroundInfo, interviewRounds, questionStates, exportDate } = data;
+  const { interviewRounds, questionStates, exportDate } = data;
   
   return `
 <!DOCTYPE html>
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Interview Preparation - ${exportDate}</title>
+    <title>Interview Questions - ${exportDate}</title>
     <style>
         body { 
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -138,24 +139,12 @@ export function generatePrintableHTML(data: ExportData): string {
 </head>
 <body>
     <div class="header">
-        <h1>Interview Preparation</h1>
+        <h1>Interview Questions</h1>
         <p><strong>Generated on:</strong> ${exportDate}</p>
     </div>
     
     <div class="section">
-        <h2>Job Description</h2>
-        <p style="white-space: pre-wrap;">${jobDescription}</p>
-    </div>
-    
-    ${backgroundInfo ? `
-    <div class="section">
-        <h2>Your Background</h2>
-        <p style="white-space: pre-wrap;">${backgroundInfo}</p>
-    </div>
-    ` : ''}
-    
-    <div class="section">
-        <h2>Interview Questions</h2>
+        <h2>Interview Questions & Answers</h2>
         ${interviewRounds.map((round, roundIndex) => {
           const startIndex = interviewRounds.slice(0, roundIndex).reduce((acc, r) => acc + r.questions.length, 0);
           return `
@@ -198,16 +187,134 @@ export function generatePrintableHTML(data: ExportData): string {
   `.trim();
 }
 
+export function generatePDF(data: ExportData): void {
+  const { interviewRounds, questionStates, exportDate } = data;
+  
+  // Create new PDF document
+  const doc = new jsPDF();
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const margin = 20;
+  const maxWidth = pageWidth - (margin * 2);
+  let yPosition = margin;
+  
+  // Title
+  doc.setFontSize(20);
+  doc.setFont(undefined, 'bold');
+  doc.text('Interview Questions', margin, yPosition);
+  yPosition += 10;
+  
+  // Date
+  doc.setFontSize(12);
+  doc.setFont(undefined, 'normal');
+  doc.text(`Generated on: ${exportDate}`, margin, yPosition);
+  yPosition += 20;
+  
+  // Process each round
+  interviewRounds.forEach((round, roundIndex) => {
+    const startIndex = interviewRounds.slice(0, roundIndex).reduce((acc, r) => acc + r.questions.length, 0);
+    
+    // Check if we need a new page
+    if (yPosition > pageHeight - 50) {
+      doc.addPage();
+      yPosition = margin;
+    }
+    
+    // Round title
+    doc.setFontSize(16);
+    doc.setFont(undefined, 'bold');
+    const roundTitle = `Round ${roundIndex + 1}: ${round.name}`;
+    doc.text(roundTitle, margin, yPosition);
+    yPosition += 8;
+    
+    // Round description
+    doc.setFontSize(10);
+    doc.setFont(undefined, 'italic');
+    const descriptionLines = doc.splitTextToSize(round.description, maxWidth);
+    doc.text(descriptionLines, margin, yPosition);
+    yPosition += descriptionLines.length * 5 + 10;
+    
+    // Questions
+    round.questions.forEach((question, qIndex) => {
+      const globalIndex = startIndex + qIndex;
+      const state = questionStates[globalIndex];
+      
+      // Check if we need a new page
+      if (yPosition > pageHeight - 80) {
+        doc.addPage();
+        yPosition = margin;
+      }
+      
+      // Question number and text
+      doc.setFontSize(12);
+      doc.setFont(undefined, 'bold');
+      doc.text(`Question ${qIndex + 1}`, margin, yPosition);
+      yPosition += 8;
+      
+      doc.setFontSize(11);
+      doc.setFont(undefined, 'normal');
+      const questionLines = doc.splitTextToSize(question.text, maxWidth);
+      doc.text(questionLines, margin, yPosition);
+      yPosition += questionLines.length * 5 + 5;
+      
+      // Tips if available
+      if (state?.guidance) {
+        doc.setFontSize(10);
+        doc.setFont(undefined, 'bold');
+        doc.text('💡 Tips:', margin, yPosition);
+        yPosition += 5;
+        
+        doc.setFont(undefined, 'normal');
+        const tipsLines = doc.splitTextToSize(state.guidance, maxWidth);
+        doc.text(tipsLines, margin, yPosition);
+        yPosition += tipsLines.length * 4 + 5;
+      }
+      
+      // Sample answer if available
+      if (state?.fullAnswer) {
+        doc.setFontSize(10);
+        doc.setFont(undefined, 'bold');
+        doc.text('📝 Sample Answer:', margin, yPosition);
+        yPosition += 5;
+        
+        doc.setFont(undefined, 'normal');
+        const answerLines = doc.splitTextToSize(state.fullAnswer, maxWidth);
+        doc.text(answerLines, margin, yPosition);
+        yPosition += answerLines.length * 4 + 10;
+      }
+      
+      yPosition += 5; // Space between questions
+    });
+    
+    yPosition += 10; // Space between rounds
+  });
+  
+  // Generate filename
+  const filename = `interview-questions-${new Date().toISOString().split('T')[0]}.pdf`;
+  
+  // Download the PDF
+  doc.save(filename);
+}
+
 export function printHTML(htmlContent: string) {
   const printWindow = window.open('', '_blank');
   if (printWindow) {
     printWindow.document.write(htmlContent);
     printWindow.document.close();
     printWindow.focus();
+    
+    // Wait for content to fully load before printing
+    printWindow.onload = () => {
+      setTimeout(() => {
+        printWindow.print();
+        // Don't auto-close so user can save as PDF
+      }, 500);
+    };
+    
+    // Fallback timeout in case onload doesn't fire
     setTimeout(() => {
       printWindow.print();
-      printWindow.close();
-    }, 250);
+    }, 1000);
   }
 }
 

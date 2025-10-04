@@ -1,55 +1,9 @@
 // utils/interviewUtils.ts
+// This function is now deprecated since we render UI components directly during streaming
 export const convertJsonToMarkdown = (content: string): string => {
-    try {
-      const cleanContent = content.trim().replace(/^```(?:json)?\s*/g, '').replace(/\s*```$/, '');
-      const parsed = JSON.parse(cleanContent);
-      if (parsed.rounds?.length) {
-        return parsed.rounds.map((round: { name: string; description: string; questions: string[] }, i: number) => 
-          `## ${i + 1}. ${round.name}\n\n*${round.description}*\n\n` +
-          (round.questions?.map((q: string, j: number) => `**${j + 1}.** ${q}\n\n`)?.join('') || '') + '---\n\n'
-        ).join('');
-      }
-    } catch {
-      const lines = content.split('\n');
-      let formatted = '', currentRoundQuestions: string[] = [], inDescription = false, roundCount = 0;
-      lines.forEach((line: string) => {
-        if (line.includes('"name":')) {
-          const nameMatch = line.match(/"name":\s*"([^"]+)"/);
-          const name = nameMatch ? nameMatch[1] : '';
-          if (currentRoundQuestions.length > 0) {
-            currentRoundQuestions.forEach((q, j) => {
-              formatted += `**${j + 1}.** ${q}\n\n`;
-            });
-            formatted += '---\n\n';
-          }
-          if (name) {
-            roundCount++;
-            formatted += `## ${roundCount}. ${name}\n\n`;
-            currentRoundQuestions = [];
-          }
-        } else if (line.includes('"description":')) {
-          const descMatch = line.match(/"description":\s*"([^"]+)"/);
-          const desc = descMatch ? descMatch[1] : '';
-          if (desc) {
-            formatted += `*${desc}*\n\n`;
-            inDescription = true;
-          }
-        } else if (inDescription && line.includes('}')) {
-          inDescription = false;
-        } else if (!inDescription && line.includes('"') && /Tell me|Describe|What|How/.test(line)) {
-          const qMatch = line.match(/"([^"]*(?:Tell me|Describe|What|How|Walk me|Explain)[^"]*?)"/);
-          const q = qMatch ? qMatch[1] : '';
-          if (q && q.length > 20) {
-            const localNum = currentRoundQuestions.length + 1;
-            formatted += `**${localNum}.** ${q}\n\n`;
-            currentRoundQuestions.push(q);
-          }
-        }
-      });
-      return formatted || content;
-    }
-    return content;
-  };
+  // For backward compatibility, just return the content
+  return content;
+};
   
   export const parseMarkdownToHtml = (markdown: string) => {
     let roundQuestionCount = 0;

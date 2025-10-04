@@ -4,9 +4,9 @@ export async function POST(request: NextRequest) {
   try {
     const { question, jobDescription, backgroundInfo } = await request.json();
 
-    if (!question || !jobDescription || !backgroundInfo) {
+    if (!question || !jobDescription) {
       return new Response(
-        JSON.stringify({ error: 'Question, job description, and background information are required' }),
+        JSON.stringify({ error: 'Question and job description are required' }),
         { status: 400, headers: { 'Content-Type': 'application/json' } }
       );
     }
@@ -42,13 +42,13 @@ IMPORTANT: Return your response as a valid JSON object with this exact structure
             content: `Job Description:
 ${jobDescription}
 
-Candidate Background:
+${backgroundInfo ? `Candidate Background:
 ${backgroundInfo}
 
-Interview Question:
+` : ''}Interview Question:
 ${question}
 
-Please provide personalized answer guidance for this question.`
+Please provide${backgroundInfo ? ' personalized' : ''} answer guidance for this question.`
           }
         ],
         temperature: 0.7,

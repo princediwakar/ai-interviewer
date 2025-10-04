@@ -1,7 +1,6 @@
 // app/api/generate/route.ts
 import { NextRequest } from 'next/server';
-// 1. Import the prompt from its new location
-import { INTERVIEW_GENERATOR_SYSTEM_PROMPT } from '@/lib/prompts'; // Using path alias '@/' is recommended
+import { INTERVIEW_GENERATOR_SYSTEM_PROMPT } from '@/lib/prompts';
 
 export async function POST(request: NextRequest) {
   try {
@@ -25,7 +24,6 @@ export async function POST(request: NextRequest) {
         messages: [
           {
             role: 'system',
-            // 2. Use the imported prompt constant here
             content: INTERVIEW_GENERATOR_SYSTEM_PROMPT, 
           },
           {
@@ -45,7 +43,6 @@ export async function POST(request: NextRequest) {
       throw new Error(`DeepSeek API error: ${response.status}`);
     }
 
-    // Streaming logic - buffer for final parse, but send incremental content
     const stream = new ReadableStream({
       async start(controller) {
         const reader = response.body?.getReader();
@@ -56,13 +53,14 @@ export async function POST(request: NextRequest) {
 
         const decoder = new TextDecoder();
         let fullContent = '';
+        let jsonStr = ''; // Define jsonStr outside the try block
 
         try {
           while (true) {
             const { done, value } = await reader.read();
             if (done) break;
 
-            const chunk = decoder.decode(value);
+            const chunk = decoder.decode(value, { stream: true }); // Use stream option
             const lines = chunk.split('\n');
 
             for (const line of lines) {
@@ -75,31 +73,41 @@ export async function POST(request: NextRequest) {
                   const content = parsed.choices[0]?.delta?.content;
                   if (content) {
                     fullContent += content;
-                    // Send incremental content for real-time streaming UX
                     const contentPayload = JSON.stringify({ type: 'content', content });
                     controller.enqueue(new TextEncoder().encode(`data: ${contentPayload}\n\n`));
                   }
                 } catch {
-                  // Ignore parsing errors for incomplete JSON chunks
+                  // Ignore parsing errors for incomplete JSON chunks from the stream
                 }
               }
             }
           }
           
-          // After full content, extract JSON from markdown and send complete structured data
-          let jsonStr = fullContent;
+          jsonStr = fullContent;
           const jsonStart = fullContent.indexOf('```json');
           const jsonEnd = fullContent.lastIndexOf('```');
+
           if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd > jsonStart) {
             jsonStr = fullContent.substring(jsonStart + 7, jsonEnd).trim();
           }
-          const finalJson = JSON.parse(jsonStr);
+
+          // **CHANGE 1: Sanitize the JSON string to remove common errors like trailing commas**
+          const sanitizedJsonStr = jsonStr.replace(/,(?=\s*[}\]])/g, '');
+
+          // **CHANGE 2: Parse the sanitized string**
+          const finalJson = JSON.parse(sanitizedJsonStr);
           const responsePayload = JSON.stringify({ type: 'complete', data: finalJson });
           controller.enqueue(new TextEncoder().encode(`data: ${responsePayload}\n\n`));
 
         } catch (error) {
-          console.error('Stream processing error:', error);
-          const errorPayload = JSON.stringify({ type: 'error', error: 'Failed to process AI response stream' });
+          // **CHANGE 3: Add detailed logging for the problematic string**
+          console.error('Stream processing error: Failed to parse JSON.');
+          console.error('--- The problematic string was: ---');
+          console.error(jsonStr);
+          console.error('--- End of problematic string ---');
+          console.error(error);
+
+          const errorPayload = JSON.stringify({ type: 'error', error: 'Failed to process and parse the AI response stream.' });
           controller.enqueue(new TextEncoder().encode(`data: ${errorPayload}\n\n`));
         } finally {
           controller.close();

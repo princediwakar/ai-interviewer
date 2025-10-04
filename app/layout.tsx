@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "PrepMatch",
+  title: "AceTheRole",
   description: "Personalized interview preparation based on your job and background",
 };
 

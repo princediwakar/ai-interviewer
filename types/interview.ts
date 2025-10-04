@@ -11,6 +11,11 @@ export interface Question {
   difficulty: DifficultyLevel;
   personalized?: boolean;
   estimatedTime?: number; // minutes
+  followUps?: string[];
+  realismContext?: {
+    commonIn?: string[];
+    reason?: string;
+  };
 }
 
 export interface InterviewRound {
@@ -19,6 +24,7 @@ export interface InterviewRound {
   icon: string;
   questions: Question[];
   estimatedDuration?: number; // minutes
+  evaluatorObjective?: string;
 }
 
 export interface QuestionState {
@@ -28,6 +34,11 @@ export interface QuestionState {
   difficulty: DifficultyLevel;
   personalized?: boolean;
   estimatedTime?: number;
+  followUps?: string[];
+  realismContext?: {
+    commonIn?: string[];
+    reason?: string;
+  };
   showGuidance: boolean;
   guidance?: string;
   showFullAnswer: boolean;

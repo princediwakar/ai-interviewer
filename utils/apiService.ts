@@ -92,7 +92,7 @@ export class ApiService {
     jobDescription: string,
     backgroundInfo: string
   ): Promise<{ guidance: string }> {
-    if (!question || !jobDescription || !backgroundInfo) {
+    if (!question || !jobDescription) {
       throw this.createError('Missing required parameters for guidance', 400, false);
     }
 
@@ -114,7 +114,7 @@ export class ApiService {
       });
 
       clearTimeout(timeoutId);
-      return this.handleResponse(response);
+      return ApiService.handleResponse(response);
     } catch (error) {
       clearTimeout(timeoutId);
       
@@ -131,7 +131,7 @@ export class ApiService {
     jobDescription: string,
     backgroundInfo: string
   ): Promise<{ answer: string }> {
-    if (!question || !jobDescription || !backgroundInfo) {
+    if (!question || !jobDescription) {
       throw this.createError('Missing required parameters for full answer', 400, false);
     }
 
@@ -153,7 +153,7 @@ export class ApiService {
       });
 
       clearTimeout(timeoutId);
-      return this.handleResponse(response);
+      return ApiService.handleResponse(response);
     } catch (error) {
       clearTimeout(timeoutId);
       
