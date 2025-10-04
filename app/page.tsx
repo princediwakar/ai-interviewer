@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import type { InterviewRound, QuestionState, GenerationState, Question } from '../types/interview';
 import { convertJsonToMarkdown, parseMarkdownToHtml } from '../utils/interviewUtils';
-import { SAMPLE_JOB_DESCRIPTION, SAMPLE_BACKGROUND } from '../lib/sampleData';
+import { SAMPLE_PAIRS } from '@/lib/sampleData'; // Adjust the import path
 import { useSessionPersistence } from '../hooks/useLocalStorage';
 import { generateMarkdownExport, downloadMarkdown, generatePrintableHTML, printHTML, type ExportData } from '../utils/exportUtils';
 import { ErrorBoundary } from '../components/ErrorBoundary';
@@ -62,7 +62,9 @@ const SetupPanel = ({ jobDescription, setJobDescription, backgroundInfo, setBack
           <label className="text-sm font-medium text-gray-900 block">Job Description <span className="text-red-500">*</span></label>
           {!jobDescription.trim() && !hasStarted && (
             <button
-              onClick={() => setJobDescription(SAMPLE_JOB_DESCRIPTION)}
+              // *** FIX HERE ***
+              // Changed from using the old variable to calling the onTrySample function.
+              onClick={onTrySample}
               className="text-xs text-blue-600 hover:text-blue-800 font-medium"
             >
               Use sample
@@ -89,7 +91,9 @@ const SetupPanel = ({ jobDescription, setJobDescription, backgroundInfo, setBack
           <label className="text-sm font-medium text-gray-900 block">Your Background</label>
           {!backgroundInfo.trim() && !hasStarted && (
             <button
-              onClick={() => setBackgroundInfo(SAMPLE_BACKGROUND)}
+              // *** FIX HERE ***
+              // Changed from using the old variable to calling the onTrySample function.
+              onClick={onTrySample}
               className="text-xs text-blue-600 hover:text-blue-800 font-medium"
             >
               Use sample
@@ -97,7 +101,7 @@ const SetupPanel = ({ jobDescription, setJobDescription, backgroundInfo, setBack
           )}
         </div>
         <textarea
-          rows={4}
+          rows={6}
           className="w-full p-3 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none text-gray-900 placeholder-gray-500 text-sm leading-relaxed"
           placeholder="Optional: Paste your resume or describe your experience..."
           value={backgroundInfo}
@@ -550,8 +554,15 @@ export default function Home() {
   };
 
   const handleTrySample = () => {
-    setJobDescription(SAMPLE_JOB_DESCRIPTION);
-    setBackgroundInfo(SAMPLE_BACKGROUND);
+    // 1. Calculate a random index every time the function is called
+    const randomIndex = Math.floor(Math.random() * SAMPLE_PAIRS.length);
+    
+    // 2. Select a new sample from the array
+    const selectedSample = SAMPLE_PAIRS[randomIndex];
+  
+    // 3. Set the state with the new, randomly selected data
+    setJobDescription(selectedSample.jobDescription);
+    setBackgroundInfo(selectedSample.background);
   };
 
   const handleExport = (format: 'markdown' | 'print') => {
