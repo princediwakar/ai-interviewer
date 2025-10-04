@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Question } from '@/types/interview';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { useAuth } from '@/lib/simple-auth';
 
 interface QuestionPracticeProps {
   question: Question;
@@ -17,6 +18,12 @@ export function QuestionPractice({ question, onBack }: QuestionPracticeProps) {
   const [isLoadingFullAnswer, setIsLoadingFullAnswer] = useState(false);
   const [guidance, setGuidance] = useState<string>('');
   const [fullAnswer, setFullAnswer] = useState<string>('');
+  
+  const { user, addBookmark, removeBookmark, isBookmarked } = useAuth();
+  
+  // Create a unique ID for the question for bookmarking
+  const questionId = `${question.text.slice(0, 50).replace(/[^a-zA-Z0-9]/g, '-')}-${question.difficulty}-${question.type}`;
+  const bookmarked = isBookmarked(questionId);
 
   const handleShowGuidance = async () => {
     if (guidance) {
@@ -103,6 +110,16 @@ export function QuestionPractice({ question, onBack }: QuestionPracticeProps) {
     // Could add a toast notification here
   };
 
+  const handleBookmarkToggle = () => {
+    if (!user) return;
+    
+    if (bookmarked) {
+      removeBookmark(questionId);
+    } else {
+      addBookmark(questionId);
+    }
+  };
+
   return (
     <div className="max-w-4xl mx-auto p-6">
       <button
@@ -123,9 +140,24 @@ export function QuestionPractice({ question, onBack }: QuestionPracticeProps) {
           </span>
         </div>
 
-        <h1 className="text-2xl font-bold text-gray-900 mb-4 leading-relaxed">
-          {question.text}
-        </h1>
+        <div className="flex items-start justify-between mb-4">
+          <h1 className="text-2xl font-bold text-gray-900 leading-relaxed flex-1">
+            {question.text}
+          </h1>
+          {user && (
+            <button
+              onClick={handleBookmarkToggle}
+              className={`ml-4 p-2 rounded-full transition-colors ${
+                bookmarked 
+                  ? 'bg-yellow-100 text-yellow-600 hover:bg-yellow-200' 
+                  : 'bg-gray-100 text-gray-400 hover:bg-gray-200 hover:text-gray-600'
+              }`}
+              title={bookmarked ? 'Remove bookmark' : 'Add bookmark'}
+            >
+              {bookmarked ? '★' : '☆'}
+            </button>
+          )}
+        </div>
 
         <div className="flex flex-wrap gap-2 mb-6">
           {question.tags.map(tag => (

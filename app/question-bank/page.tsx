@@ -7,6 +7,7 @@ import { QuestionPractice } from '@/components/QuestionPractice';
 import { Question } from '@/types/interview';
 import { Role } from '@/lib/questionBank/questionBank';
 import { Logo } from '../Logo';
+import { AuthProvider } from '@/lib/simple-auth';
 import Link from 'next/link';
 
 type ViewState = 'role-selection' | 'question-browser' | 'question-practice';
@@ -38,41 +39,51 @@ export default function QuestionBankPage() {
   };
 
   return (
-    <div className="min-h-screen bg-white">
-      {/* Header */}
-      <header className="border-b border-gray-200">
-        <div className="px-4 py-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <Logo className="h-6 w-auto text-gray-900" />
-              <h1 className="text-xl font-semibold text-gray-900">AceTheRole</h1>
-              <span className="text-sm text-gray-500 ml-2">Question Bank</span>
+    <AuthProvider>
+      <div className="min-h-screen bg-white">
+        {/* Header */}
+        <header className="border-b border-gray-200">
+          <div className="px-4 py-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <Logo className="h-6 w-auto text-gray-900" />
+                <h1 className="text-xl font-semibold text-gray-900">AceTheRole</h1>
+                <span className="text-sm text-gray-500 ml-2">Question Bank</span>
+              </div>
+              <div className="flex items-center gap-4">
+                <Link href="/" className="text-gray-600 hover:text-gray-900 text-sm font-medium px-3 py-1.5 rounded hover:bg-gray-100 transition-colors">
+                  Custom Generation
+                </Link>
+                <Link href="/profile" className="text-gray-600 hover:text-gray-900 text-sm font-medium px-3 py-1.5 rounded hover:bg-gray-100 transition-colors">
+                  Profile
+                </Link>
+                <Link href="/login" className="text-gray-600 hover:text-gray-900 text-sm font-medium px-3 py-1.5 rounded hover:bg-gray-100 transition-colors">
+                  Login
+                </Link>
+              </div>
             </div>
-            <Link href="/" className="text-gray-600 hover:text-gray-900 text-sm font-medium px-3 py-1.5 rounded hover:bg-gray-100 transition-colors">
-              Custom Generation
-            </Link>
           </div>
-        </div>
-      </header>
+        </header>
 
-      {currentView === 'role-selection' && (
-        <RoleSelection onRoleSelect={handleRoleSelect} />
-      )}
+        {currentView === 'role-selection' && (
+          <RoleSelection onRoleSelect={handleRoleSelect} />
+        )}
 
-      {currentView === 'question-browser' && selectedRole && (
-        <QuestionBrowser
-          role={selectedRole}
-          onBack={handleBackToRoles}
-          onQuestionSelect={handleQuestionSelect}
-        />
-      )}
+        {currentView === 'question-browser' && selectedRole && (
+          <QuestionBrowser
+            role={selectedRole}
+            onBack={handleBackToRoles}
+            onQuestionSelect={handleQuestionSelect}
+          />
+        )}
 
-      {currentView === 'question-practice' && selectedQuestion && (
-        <QuestionPractice
-          question={selectedQuestion}
-          onBack={handleBackToQuestions}
-        />
-      )}
-    </div>
+        {currentView === 'question-practice' && selectedQuestion && (
+          <QuestionPractice
+            question={selectedQuestion}
+            onBack={handleBackToQuestions}
+          />
+        )}
+      </div>
+    </AuthProvider>
   );
 }

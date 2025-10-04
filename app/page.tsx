@@ -103,6 +103,9 @@ export default function Home() {
                 <Link href="/question-bank" className="text-gray-600 hover:text-gray-900 text-sm font-medium px-3 py-1.5 rounded hover:bg-gray-100 transition-colors">
                   Question Bank
                 </Link>
+                <Link href="/login" className="text-gray-600 hover:text-gray-900 text-sm font-medium px-3 py-1.5 rounded hover:bg-gray-100 transition-colors">
+                  Login
+                </Link>
                 {hasStarted && <button onClick={handleReset} className="text-gray-600 hover:text-gray-900 text-sm font-medium px-3 py-1.5 rounded hover:bg-gray-100 transition-colors">New session</button>}
               </div>
             </div>
