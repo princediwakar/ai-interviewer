@@ -2,11 +2,11 @@ import { NextRequest } from 'next/server';
 
 export async function POST(request: NextRequest) {
   try {
-    const { question, jobDescription, backgroundInfo } = await request.json();
+    const { question, jobDescription, backgroundInfo, questionType, questionTags } = await request.json();
 
-    if (!question || !jobDescription) {
+    if (!question) {
       return new Response(
-        JSON.stringify({ error: 'Question and job description are required' }),
+        JSON.stringify({ error: 'Question is required' }),
         { status: 400, headers: { 'Content-Type': 'application/json' } }
       );
     }
@@ -22,33 +22,35 @@ export async function POST(request: NextRequest) {
         messages: [
           {
             role: 'system',
-            content: `You are an expert interview coach. Your task is to provide personalized answer guidance for a specific interview question based on the candidate's background and the job they're applying for.
+            content: `You are an expert interview coach. Your task is to provide answer guidance for interview questions.
 
 Instructions:
-1. Analyze the interview question in the context of the job role
-2. Provide specific guidance on how to approach this question
-3. Reference the candidate's actual experience when relevant
-4. Suggest key points they should cover
-5. Recommend the STAR method if applicable
-6. Keep guidance concise but actionable (2-3 key points)
+1. Analyze the interview question and provide practical guidance
+2. If a job description is provided, tailor advice to that specific role
+3. If no job description is provided, give general best-practice guidance
+4. Reference the candidate's background when available
+5. Suggest key points they should cover
+6. Recommend the STAR method when applicable for behavioral questions
+7. Keep guidance concise but actionable (2-3 key points)
 
 IMPORTANT: Return your response as a valid JSON object with this exact structure (no markdown formatting):
 {
-  "guidance": "Your personalized answer guidance here"
+  "guidance": "Your answer guidance here"
 }`
           },
           {
             role: 'user',
-            content: `Job Description:
+            content: `${jobDescription ? `Job Description:
 ${jobDescription}
 
-${backgroundInfo ? `Candidate Background:
+` : ''}${backgroundInfo ? `Candidate Background:
 ${backgroundInfo}
 
-` : ''}Interview Question:
-${question}
+` : ''}Interview Question: ${question}
+${questionType ? `Question Type: ${questionType}` : ''}
+${questionTags?.length ? `Question Tags: ${questionTags.join(', ')}` : ''}
 
-Please provide${backgroundInfo ? ' personalized' : ''} answer guidance for this question.`
+Please provide ${jobDescription && backgroundInfo ? 'personalized ' : ''}answer guidance for this ${questionType || 'interview'} question.`
           }
         ],
         temperature: 0.7,

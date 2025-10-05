@@ -2,6 +2,7 @@
 'use client';
 
 import { useRef, useEffect } from 'react';
+import Link from 'next/link';
 import type { InterviewRound, QuestionState, GenerationState } from '../types/interview';
 import { getQuestionTypeConfig, getDifficultyConfig, formatEstimatedTime } from '../utils/questionUtils';
 import { StreamingDisplay } from './StreamingDisplay';
@@ -24,15 +25,25 @@ const EmptyState = () => (
       <h2 className="text-sm font-semibold text-gray-900">Interview Questions</h2>
     </div>
     <div className="flex-1 flex items-center justify-center p-8 text-gray-500">
-      <div className="text-center space-y-4">
+      <div className="text-center space-y-6 max-w-md">
         <div className="w-16 h-16 mx-auto bg-gray-100 rounded-full flex items-center justify-center">
           <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
         </div>
         <div>
-          <p className="text-sm font-medium">Ready to generate questions</p>
-          <p className="text-xs mt-1 text-gray-400">Fill in your job description to get started</p>
+          <p className="text-sm font-medium text-gray-700">Ready to generate personalized questions</p>
+          <p className="text-xs mt-1 text-gray-400">Add your job description to get AI-generated interview questions</p>
+        </div>
+        
+        <div className="pt-4 border-t border-gray-200">
+          <p className="text-xs text-gray-500 mb-3">Or explore our curated question bank</p>
+          <Link 
+            href="/question-bank" 
+            className="inline-flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800 font-medium"
+          >
+            Browse Question Bank →
+          </Link>
         </div>
       </div>
     </div>

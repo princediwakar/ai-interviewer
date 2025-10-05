@@ -1,10 +1,13 @@
+// components/QuestionPractice.tsx
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { Question } from '@/types/interview';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { useAuth } from '@/lib/simple-auth';
+// Note: useAuth import is removed as it's no longer used.
+// import { useAuth } from '@/lib/simple-auth'; 
 
 interface QuestionPracticeProps {
   question: Question;
@@ -19,15 +22,9 @@ export function QuestionPractice({ question, onBack }: QuestionPracticeProps) {
   const [guidance, setGuidance] = useState<string>('');
   const [fullAnswer, setFullAnswer] = useState<string>('');
   
-  const { user, addBookmark, removeBookmark, isBookmarked } = useAuth();
-  
-  // Create a unique ID for the question for bookmarking
-  const questionId = `${question.text.slice(0, 50).replace(/[^a-zA-Z0-9]/g, '-')}-${question.difficulty}-${question.type}`;
-  const bookmarked = isBookmarked(questionId);
-
   const handleShowGuidance = async () => {
     if (guidance) {
-      setShowGuidance(true);
+      setShowGuidance(!showGuidance); // Toggle visibility
       return;
     }
 
@@ -57,7 +54,7 @@ export function QuestionPractice({ question, onBack }: QuestionPracticeProps) {
 
   const handleShowFullAnswer = async () => {
     if (fullAnswer) {
-      setShowFullAnswer(true);
+      setShowFullAnswer(!showFullAnswer); // Toggle visibility
       return;
     }
 
@@ -107,160 +104,154 @@ export function QuestionPractice({ question, onBack }: QuestionPracticeProps) {
 
   const handleCopy = (text: string) => {
     navigator.clipboard.writeText(text);
-    // Could add a toast notification here
-  };
-
-  const handleBookmarkToggle = () => {
-    if (!user) return;
-    
-    if (bookmarked) {
-      removeBookmark(questionId);
-    } else {
-      addBookmark(questionId);
-    }
   };
 
   return (
-    <div className="max-w-4xl mx-auto p-6">
-      <button
-        onClick={onBack}
-        className="text-blue-600 hover:text-blue-800 mb-4 flex items-center gap-2"
-      >
-        ← Back to questions
-      </button>
-
-      <Card className="p-6 mb-6">
-        <div className="flex items-center gap-3 mb-4">
-          <span className="text-2xl">{getQuestionTypeIcon(question.type)}</span>
-          <span className={`px-3 py-1 rounded-full text-sm font-medium ${getDifficultyColor(question.difficulty)}`}>
-            {question.difficulty}
+    <div>
+      {/* Breadcrumb */}
+      <div className="bg-gray-50 border-b border-gray-200 px-6 py-3">
+        <nav className="flex items-center space-x-2 text-sm text-gray-600">
+          <Link
+            href="/question-bank"
+            className="text-blue-600 hover:text-blue-800 font-medium"
+          >
+            Question Bank
+          </Link>
+          <span className="text-gray-400">›</span>
+          <button
+            onClick={onBack}
+            className="text-blue-600 hover:text-blue-800 font-medium"
+          >
+            Back to Questions
+          </button>
+          <span className="text-gray-400">›</span>
+          <span className="text-gray-900 font-medium">
+            {question.type} Question
           </span>
-          <span className="text-sm text-gray-600">
-            ~{question.estimatedTime} minutes
-          </span>
-        </div>
-
-        <div className="flex items-start justify-between mb-4">
-          <h1 className="text-2xl font-bold text-gray-900 leading-relaxed flex-1">
-            {question.text}
-          </h1>
-          {user && (
-            <button
-              onClick={handleBookmarkToggle}
-              className={`ml-4 p-2 rounded-full transition-colors ${
-                bookmarked 
-                  ? 'bg-yellow-100 text-yellow-600 hover:bg-yellow-200' 
-                  : 'bg-gray-100 text-gray-400 hover:bg-gray-200 hover:text-gray-600'
-              }`}
-              title={bookmarked ? 'Remove bookmark' : 'Add bookmark'}
-            >
-              {bookmarked ? '★' : '☆'}
-            </button>
-          )}
-        </div>
-
-        <div className="flex flex-wrap gap-2 mb-6">
-          {question.tags.map(tag => (
-            <span
-              key={tag}
-              className="px-3 py-1 bg-blue-50 text-blue-700 text-sm rounded-md"
-            >
-              {tag}
-            </span>
-          ))}
-        </div>
-
-        {question.followUps && question.followUps.length > 0 && (
-          <div className="bg-gray-50 p-4 rounded-lg">
-            <h3 className="font-medium text-gray-900 mb-2">Follow-up questions:</h3>
-            <ul className="space-y-1">
-              {question.followUps.map((followUp, index) => (
-                <li key={index} className="text-gray-700 text-sm">
-                  • {followUp}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-      </Card>
-
-      {/* Action Buttons */}
-      <div className="flex gap-4 mb-6">
-        <Button
-          onClick={handleShowGuidance}
-          disabled={isLoadingGuidance}
-          variant="outline"
-          className="flex items-center gap-2"
-        >
-          {isLoadingGuidance ? (
-            <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-          ) : (
-            '💡'
-          )}
-          {showGuidance ? 'Hide' : 'Show'} Answer Tips
-        </Button>
-
-        <Button
-          onClick={handleShowFullAnswer}
-          disabled={isLoadingFullAnswer}
-          className="flex items-center gap-2"
-        >
-          {isLoadingFullAnswer ? (
-            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-          ) : (
-            '✨'
-          )}
-          {showFullAnswer ? 'Hide' : 'Show'} Full Answer
-        </Button>
+        </nav>
       </div>
 
-      {/* Guidance Section */}
-      {showGuidance && guidance && (
-        <Card className="p-6 mb-6 bg-blue-50 border-blue-200">
-          <div className="flex justify-between items-center mb-3">
-            <h3 className="font-semibold text-blue-900 flex items-center gap-2">
-              💡 Answer Tips
-            </h3>
-            <button
-              onClick={() => handleCopy(guidance)}
-              className="text-blue-600 hover:text-blue-800 text-sm"
-            >
-              Copy
-            </button>
+      <div className="max-w-4xl mx-auto p-6">
+        <Card className="p-6 mb-6">
+          <div className="flex items-center gap-3 mb-4">
+            <span className="text-2xl">{getQuestionTypeIcon(question.type)}</span>
+            <span className={`px-3 py-1 rounded-full text-sm font-medium ${getDifficultyColor(question.difficulty)}`}>
+              {question.difficulty}
+            </span>
+            <span className="text-sm text-gray-600">
+              ~{question.estimatedTime} minutes
+            </span>
           </div>
-          <div className="prose prose-sm max-w-none text-blue-800">
-            {guidance.split('\n').map((line, index) => (
-              <p key={index} className="mb-2">
-                {line}
-              </p>
-            ))}
-          </div>
-        </Card>
-      )}
 
-      {/* Full Answer Section */}
-      {showFullAnswer && fullAnswer && (
-        <Card className="p-6 bg-green-50 border-green-200">
-          <div className="flex justify-between items-center mb-3">
-            <h3 className="font-semibold text-green-900 flex items-center gap-2">
-              ✨ Full Answer
-            </h3>
-            <button
-              onClick={() => handleCopy(fullAnswer)}
-              className="text-green-600 hover:text-green-800 text-sm"
-            >
-              Copy
-            </button>
+          <div className="flex items-start justify-between mb-4">
+            <h1 className="text-2xl font-bold text-gray-900 leading-relaxed flex-1">
+              {question.text}
+            </h1>
           </div>
-          <div className="prose prose-sm max-w-none text-green-800">
-            {fullAnswer.split('\n').map((line, index) => (
-              <p key={index} className="mb-2">
-                {line}
-              </p>
+
+          <div className="flex flex-wrap gap-2 mb-6">
+            {question.tags.map(tag => (
+              <span
+                key={tag}
+                className="px-3 py-1 bg-blue-50 text-blue-700 text-sm rounded-md"
+              >
+                {tag}
+              </span>
             ))}
           </div>
+
+          {question.followUps && question.followUps.length > 0 && (
+            <div className="bg-gray-50 p-4 rounded-lg">
+              <h3 className="font-medium text-gray-900 mb-2">Follow-up questions:</h3>
+              <ul className="space-y-1">
+                {question.followUps.map((followUp, index) => (
+                  <li key={index} className="text-gray-700 text-sm">
+                    • {followUp}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </Card>
-      )}
+
+        {/* Action Buttons */}
+        <div className="flex gap-4 mb-6">
+          <Button
+            onClick={handleShowGuidance}
+            disabled={isLoadingGuidance}
+            variant="outline"
+            className="flex items-center gap-2"
+          >
+            {isLoadingGuidance ? (
+              <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+            ) : (
+              '💡'
+            )}
+            {showGuidance ? 'Hide' : 'Show'} Answer Tips
+          </Button>
+
+          <Button
+            onClick={handleShowFullAnswer}
+            disabled={isLoadingFullAnswer}
+            className="flex items-center gap-2"
+          >
+            {isLoadingFullAnswer ? (
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            ) : (
+              '✨'
+            )}
+            {showFullAnswer ? 'Hide' : 'Show'} Full Answer
+          </Button>
+        </div>
+
+        {/* Guidance Section */}
+        {showGuidance && guidance && (
+          <Card className="p-6 mb-6 bg-blue-50 border-blue-200">
+            <div className="flex justify-between items-center mb-3">
+              <h3 className="font-semibold text-blue-900 flex items-center gap-2">
+                💡 Answer Tips
+              </h3>
+              <button
+                onClick={() => handleCopy(guidance)}
+                className="text-blue-600 hover:text-blue-800 text-sm"
+              >
+                Copy
+              </button>
+            </div>
+            <div className="prose prose-sm max-w-none text-blue-800">
+              {guidance.split('\n').map((line, index) => (
+                <p key={index} className="mb-2">
+                  {line}
+                </p>
+              ))}
+            </div>
+          </Card>
+        )}
+
+        {/* Full Answer Section */}
+        {showFullAnswer && fullAnswer && (
+          <Card className="p-6 bg-green-50 border-green-200">
+            <div className="flex justify-between items-center mb-3">
+              <h3 className="font-semibold text-green-900 flex items-center gap-2">
+                ✨ Full Answer
+              </h3>
+              <button
+                onClick={() => handleCopy(fullAnswer)}
+                className="text-green-600 hover:text-green-800 text-sm"
+              >
+                Copy
+              </button>
+            </div>
+            <div className="prose prose-sm max-w-none text-green-800">
+              {fullAnswer.split('\n').map((line, index) => (
+                <p key={index} className="mb-2">
+                  {line}
+                </p>
+              ))}
+            </div>
+          </Card>
+        )}
+      </div>
     </div>
   );
 }

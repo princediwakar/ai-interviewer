@@ -5,6 +5,7 @@ export type QuestionType = 'behavioral' | 'technical' | 'case-study' | 'situatio
 export type DifficultyLevel = 'entry' | 'mid' | 'senior' | 'expert';
 
 export interface Question {
+  id: string;
   text: string;
   tags: string[];
   type: QuestionType;

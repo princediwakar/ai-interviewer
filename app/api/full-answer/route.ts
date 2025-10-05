@@ -2,11 +2,11 @@ import { NextRequest } from 'next/server';
 
 export async function POST(request: NextRequest) {
   try {
-    const { question, jobDescription, backgroundInfo } = await request.json();
+    const { question, jobDescription, backgroundInfo, questionType, questionTags } = await request.json();
 
-    if (!question || !jobDescription) {
+    if (!question) {
       return new Response(
-        JSON.stringify({ error: 'Question and job description are required' }),
+        JSON.stringify({ error: 'Question is required' }),
         { status: 400, headers: { 'Content-Type': 'application/json' } }
       );
     }
@@ -22,16 +22,16 @@ export async function POST(request: NextRequest) {
         messages: [
           {
             role: 'system',
-            content: `You are an experienced professional being interviewed for this specific role. Your task is to provide a complete, well-structured interview answer based on the candidate's actual background and experience.
+            content: `You are an experienced professional providing a complete, well-structured interview answer.
 
 Instructions:
-1. Answer as if you ARE the candidate being interviewed
-2. Use the STAR method when telling stories (Situation, Task, Action, Result)
-3. Reference specific experiences from the candidate's background
+1. If a job description and background are provided, answer as if you are that specific candidate
+2. If no specific background is provided, give a general but strong example answer
+3. Use the STAR method when telling stories (Situation, Task, Action, Result)
 4. Make the answer realistic and conversational
-5. Include metrics and specific details when available
+5. Include metrics and specific details when possible
 6. Keep the answer to 2-3 minutes when spoken (200-300 words)
-7. Show enthusiasm and knowledge about the role
+7. Show enthusiasm and relevant knowledge
 
 IMPORTANT: Return your response as a valid JSON object with this exact structure (no markdown formatting):
 {
@@ -40,16 +40,17 @@ IMPORTANT: Return your response as a valid JSON object with this exact structure
           },
           {
             role: 'user',
-            content: `Job Description:
+            content: `${jobDescription ? `Job Description:
 ${jobDescription}
 
-${backgroundInfo ? `My Background (speak as this person):
+` : ''}${backgroundInfo ? `Background (speak as this person):
 ${backgroundInfo}
 
-` : ''}Interview Question:
-${question}
+` : ''}Interview Question: ${question}
+${questionType ? `Question Type: ${questionType}` : ''}
+${questionTags?.length ? `Question Tags: ${questionTags.join(', ')}` : ''}
 
-Please provide a complete interview answer${backgroundInfo ? ' as if you are this candidate' : ' for this role'}.`
+Please provide a complete interview answer${backgroundInfo ? ' as if you are this candidate' : ' with a strong example'}.`
           }
         ],
         temperature: 0.7,

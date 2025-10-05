@@ -1,88 +1,41 @@
-'use client';
-
-import { useState } from 'react';
+// app/question-bank/page.tsx
 import { RoleSelection } from '@/components/RoleSelection';
-import { QuestionBrowser } from '@/components/QuestionBrowser';
-import { QuestionPractice } from '@/components/QuestionPractice';
-import { Question } from '@/types/interview';
-import { Role } from '@/lib/questionBank/questionBank';
-import { Logo } from '../Logo';
+import { getAllRoles, getQuestionsByRole } from '@/lib/questionBank/questionBank';
+import { Navigation } from '@/components/Navigation';
 import { AuthProvider } from '@/lib/simple-auth';
-import Link from 'next/link';
 
-type ViewState = 'role-selection' | 'question-browser' | 'question-practice';
+export default async function QuestionBankPage() {
+  const roles = await getAllRoles();
 
-export default function QuestionBankPage() {
-  const [currentView, setCurrentView] = useState<ViewState>('role-selection');
-  const [selectedRole, setSelectedRole] = useState<Role | null>(null);
-  const [selectedQuestion, setSelectedQuestion] = useState<Question | null>(null);
+  const rolesWithDetails = await Promise.all(roles.map(async (role) => {
+    const questions = await getQuestionsByRole(role.id);
+    const distribution = { entry: 0, mid: 0, senior: 0, expert: 0 };
+    questions.forEach(q => {
+      if (q.difficulty in distribution) {
+        distribution[q.difficulty]++;
+      }
+    });
+    const total = questions.length;
+    const difficultyDist = {
+      entry: total > 0 ? Math.round((distribution.entry / total) * 100) : 0,
+      mid: total > 0 ? Math.round((distribution.mid / total) * 100) : 0,
+      senior: total > 0 ? Math.round((distribution.senior / total) * 100) : 0,
+      expert: total > 0 ? Math.round((distribution.expert / total) * 100) : 0
+    };
+    const sampleQuestion = questions.length > 0 ? questions[0].text : "No questions available";
 
-  const handleRoleSelect = (role: Role) => {
-    setSelectedRole(role);
-    setCurrentView('question-browser');
-  };
-
-  const handleQuestionSelect = (question: Question) => {
-    setSelectedQuestion(question);
-    setCurrentView('question-practice');
-  };
-
-  const handleBackToRoles = () => {
-    setSelectedRole(null);
-    setSelectedQuestion(null);
-    setCurrentView('role-selection');
-  };
-
-  const handleBackToQuestions = () => {
-    setSelectedQuestion(null);
-    setCurrentView('question-browser');
-  };
+    return {
+      ...role,
+      difficultyDist,
+      sampleQuestion
+    };
+  }));
 
   return (
     <AuthProvider>
       <div className="min-h-screen bg-white">
-        {/* Header */}
-        <header className="border-b border-gray-200">
-          <div className="px-4 py-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <Logo className="h-6 w-auto text-gray-900" />
-                <h1 className="text-xl font-semibold text-gray-900">AceTheRole</h1>
-                <span className="text-sm text-gray-500 ml-2">Question Bank</span>
-              </div>
-              <div className="flex items-center gap-4">
-                <Link href="/" className="text-gray-600 hover:text-gray-900 text-sm font-medium px-3 py-1.5 rounded hover:bg-gray-100 transition-colors">
-                  Custom Generation
-                </Link>
-                <Link href="/profile" className="text-gray-600 hover:text-gray-900 text-sm font-medium px-3 py-1.5 rounded hover:bg-gray-100 transition-colors">
-                  Profile
-                </Link>
-                <Link href="/login" className="text-gray-600 hover:text-gray-900 text-sm font-medium px-3 py-1.5 rounded hover:bg-gray-100 transition-colors">
-                  Login
-                </Link>
-              </div>
-            </div>
-          </div>
-        </header>
-
-        {currentView === 'role-selection' && (
-          <RoleSelection onRoleSelect={handleRoleSelect} />
-        )}
-
-        {currentView === 'question-browser' && selectedRole && (
-          <QuestionBrowser
-            role={selectedRole}
-            onBack={handleBackToRoles}
-            onQuestionSelect={handleQuestionSelect}
-          />
-        )}
-
-        {currentView === 'question-practice' && selectedQuestion && (
-          <QuestionPractice
-            question={selectedQuestion}
-            onBack={handleBackToQuestions}
-          />
-        )}
+        <Navigation subtitle="Question Bank" />
+        <RoleSelection roles={rolesWithDetails} />
       </div>
     </AuthProvider>
   );

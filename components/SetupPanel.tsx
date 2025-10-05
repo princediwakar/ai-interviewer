@@ -30,37 +30,18 @@ export const SetupPanel = ({
 }: SetupPanelProps) => (
   <div className="flex flex-col h-full">
     <div className="p-4 border-b border-gray-200 flex items-center justify-between h-14">
-      <div className="flex flex-col">
-        <h2 className="text-sm font-semibold text-gray-900">Setup Your Interview Prep</h2>
-        <p className="text-gray-500 text-xs">Get personalized questions based on your job and background</p>
-      </div>
+      <h2 className="text-sm font-semibold text-gray-900">Setup Your Interview Prep</h2>
       {!hasStarted && (
         <button
           onClick={onTrySample}
-          className="text-xs bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 px-3 py-1.5 rounded-md hover:from-blue-100 hover:to-indigo-100 transition-colors border border-blue-200 font-medium"
+          className="text-xs bg-blue-50 text-blue-700 px-3 py-1.5 rounded border border-blue-200 font-medium hover:bg-blue-100 transition-colors"
         >
           Try Sample
         </button>
       )}
     </div>
     
-    <div className="flex-1 overflow-y-auto p-4 space-y-6">
-      {!hasStarted && (
-        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-lg border border-blue-100">
-          <div className="flex items-center space-x-2 mb-2">
-            <div className="w-5 h-5 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-semibold">1</div>
-            <p className="text-blue-900 text-sm font-medium">Add job description</p>
-          </div>
-          <div className="flex items-center space-x-2 mb-2">
-            <div className="w-5 h-5 bg-blue-400 text-white rounded-full flex items-center justify-center text-xs font-semibold">2</div>
-            <p className="text-blue-800 text-sm">Add your background (optional)</p>
-          </div>
-          <div className="flex items-center space-x-2">
-            <div className="w-5 h-5 bg-blue-400 text-white rounded-full flex items-center justify-center text-xs font-semibold">3</div>
-            <p className="text-blue-800 text-sm">Generate personalized questions</p>
-          </div>
-        </div>
-      )}
+    <div className="flex-1 overflow-y-auto p-4 space-y-4">
 
       <div className="space-y-2 job-description-area">
         <div className="flex items-center justify-between">
@@ -75,7 +56,7 @@ export const SetupPanel = ({
           )}
         </div>
         <textarea
-          rows={6}
+          rows={8}
           className="w-full p-3 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none text-gray-900 placeholder-gray-500 text-sm leading-relaxed"
           placeholder="Paste the full job description here..."
           value={jobDescription}
@@ -102,7 +83,7 @@ export const SetupPanel = ({
           )}
         </div>
         <textarea
-          rows={6}
+          rows={8}
           className="w-full p-3 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none text-gray-900 placeholder-gray-500 text-sm leading-relaxed"
           placeholder="Optional: Paste your resume or describe your experience..."
           value={backgroundInfo}
@@ -136,10 +117,5 @@ export const SetupPanel = ({
       </button>
     </div>
 
-    {hasStarted && (
-      <div className="p-2 border-t border-gray-200 h-8 flex items-center justify-center">
-        <p className="text-gray-500 text-xs">Data processed securely</p>
-      </div>
-    )}
   </div>
 );

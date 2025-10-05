@@ -1,3 +1,4 @@
+// lib/simple-auth.tsx
 "use client"
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
@@ -6,7 +7,6 @@ interface User {
   id: string
   email: string
   name: string
-  bookmarks: string[]
   preferences: {
     defaultDifficulty: string[]
     defaultQuestionTypes: string[]
@@ -19,9 +19,6 @@ interface AuthContextType {
   register: (email: string, password: string, name: string) => Promise<boolean>
   logout: () => void
   isLoading: boolean
-  addBookmark: (questionId: string) => void
-  removeBookmark: (questionId: string) => void
-  isBookmarked: (questionId: string) => boolean
   updatePreferences: (preferences: Partial<User['preferences']>) => void
 }
 
@@ -41,7 +38,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (savedUser) {
       try {
         setUser(JSON.parse(savedUser))
-      } catch (e) {
+      } catch (_e) {
         localStorage.removeItem(SESSION_KEY)
       }
     }
@@ -60,7 +57,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         id: email,
         email: userData.email,
         name: userData.name,
-        bookmarks: [],
         preferences: {
           defaultDifficulty: [],
           defaultQuestionTypes: []
@@ -92,7 +88,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       id: email, 
       email, 
       name, 
-      bookmarks: [],
       preferences: {
         defaultDifficulty: [],
         defaultQuestionTypes: []
@@ -109,31 +104,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem(SESSION_KEY)
   }
 
-  const addBookmark = (questionId: string) => {
-    if (!user) return
-    
-    const updatedUser = {
-      ...user,
-      bookmarks: [...user.bookmarks, questionId]
-    }
-    setUser(updatedUser)
-    localStorage.setItem(SESSION_KEY, JSON.stringify(updatedUser))
-  }
 
-  const removeBookmark = (questionId: string) => {
-    if (!user) return
-    
-    const updatedUser = {
-      ...user,
-      bookmarks: user.bookmarks.filter(id => id !== questionId)
-    }
-    setUser(updatedUser)
-    localStorage.setItem(SESSION_KEY, JSON.stringify(updatedUser))
-  }
 
-  const isBookmarked = (questionId: string) => {
-    return user ? user.bookmarks.includes(questionId) : false
-  }
 
   const updatePreferences = (newPreferences: Partial<User['preferences']>) => {
     if (!user) return
@@ -150,7 +122,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, login, register, logout, isLoading, addBookmark, removeBookmark, isBookmarked, updatePreferences }}>
+    <AuthContext.Provider value={{ user, login, register, logout, isLoading, updatePreferences }}>
       {children}
     </AuthContext.Provider>
   )

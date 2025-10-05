@@ -8,14 +8,15 @@ import { SetupPanel } from '../components/SetupPanel';
 import { InterviewPanel } from '../components/InterviewPanel';
 import { useInterviewGeneration } from '../hooks/useInterviewGeneration';
 import { useQuestionActions } from '../hooks/useQuestionActions';
-import { Logo } from './Logo'
-import Link from 'next/link'
+import { Navigation } from '../components/Navigation';
+import { DualModeSelection } from '../components/DualModeSelection';
 
 export default function Home() {
   const [jobDescription, setJobDescription] = useState('');
   const [backgroundInfo, setBackgroundInfo] = useState('');
   const [hasStarted, setHasStarted] = useState(false);
   const [activeTab, setActiveTab] = useState<'setup' | 'questions'>('setup');
+  const [showAIGeneration, setShowAIGeneration] = useState(false);
 
   const {
     generationState,
@@ -51,7 +52,12 @@ export default function Home() {
     setBackgroundInfo('');
     setHasStarted(false);
     setActiveTab('setup');
+    setShowAIGeneration(false);
     resetGeneration();
+  };
+
+  const handleAIGenerationSelect = () => {
+    setShowAIGeneration(true);
   };
 
   const handleTrySample = () => {
@@ -89,32 +95,24 @@ export default function Home() {
   return (
     <ErrorBoundary>
       <div className="h-screen flex flex-col bg-white">
-        <header className="border-b border-gray-200 flex-shrink-0">
-          <div className="px-4 py-3">
-            <div className="flex items-center justify-between">
-
-              {/* --- Logo and Title --- */}
-              <div className="flex items-center space-x-2">
-                <Logo className="h-6 w-auto text-gray-900" />
-                <h1 className="text-xl font-semibold text-gray-900">AceTheRole</h1>
-              </div>
-
-              <div className="flex items-center gap-4">
-                <Link href="/question-bank" className="text-gray-600 hover:text-gray-900 text-sm font-medium px-3 py-1.5 rounded hover:bg-gray-100 transition-colors">
-                  Question Bank
-                </Link>
-                <Link href="/login" className="text-gray-600 hover:text-gray-900 text-sm font-medium px-3 py-1.5 rounded hover:bg-gray-100 transition-colors">
-                  Login
-                </Link>
-                {hasStarted && <button onClick={handleReset} className="text-gray-600 hover:text-gray-900 text-sm font-medium px-3 py-1.5 rounded hover:bg-gray-100 transition-colors">New session</button>}
-              </div>
-            </div>
-          </div>
-        </header>
+        <Navigation 
+          showNewSession={hasStarted || showAIGeneration}
+          onNewSession={handleReset}
+        />
 
         <div className="flex-1 overflow-hidden">
-          {/* Desktop Split View */}
-          <div className="hidden md:flex w-full h-full">
+          {/* Show dual-mode selection when user hasn't chosen a mode */}
+          {!showAIGeneration && !hasStarted && (
+            <div className="w-full h-full overflow-auto">
+              <DualModeSelection onAIGenerationSelect={handleAIGenerationSelect} />
+            </div>
+          )}
+
+          {/* Show AI Generation interface when selected */}
+          {showAIGeneration && (
+            <>
+              {/* Desktop Split View */}
+              <div className="hidden md:flex w-full h-full">
             <div className="w-1/3 border-r border-gray-200">
               <SetupPanel
                 jobDescription={jobDescription}
@@ -192,10 +190,12 @@ export default function Home() {
               )}
             </div>
           </div>
+            </>
+          )}
         </div>
 
         {/* Mobile Sticky Generate Button */}
-        {hasStarted && window.innerWidth < 768 && activeTab === 'setup' && (
+        {showAIGeneration && hasStarted && window.innerWidth < 768 && activeTab === 'setup' && (
           <div className="md:hidden fixed bottom-0 left-0 right-0 border-t border-gray-200 p-3 z-20 shadow-lg bg-white">
             <button
               onClick={handleGenerate}
@@ -208,7 +208,7 @@ export default function Home() {
         )}
 
         {/* Error Handling */}
-        {(generationError || isRetrying) && (
+        {showAIGeneration && (generationError || isRetrying) && (
           <div className="fixed top-4 right-4 border rounded p-4 max-w-sm z-50 shadow-lg bg-white">
             {isRetrying ? (
               <div className="border-blue-200">

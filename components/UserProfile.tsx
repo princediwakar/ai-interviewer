@@ -1,51 +1,60 @@
 "use client"
 
-import { useState } from 'react'
-import { useAuth } from '@/lib/simple-auth'
+import { useState, useEffect } from 'react'
+import { useSession, signOut } from '@/lib/auth-client'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
+import { usePreferences } from '@/hooks/usePreferences'
 
 export function UserProfile() {
-  const { user, updatePreferences, logout } = useAuth()
-  const [selectedDifficulties, setSelectedDifficulties] = useState<string[]>(
-    user?.preferences?.defaultDifficulty || []
-  )
-  const [selectedQuestionTypes, setSelectedQuestionTypes] = useState<string[]>(
-    user?.preferences?.defaultQuestionTypes || []
-  )
+  const { data: session } = useSession()
+  const { preferences, updatePreferences, loading: preferencesLoading } = usePreferences()
+  
+  const [selectedRoles, setSelectedRoles] = useState<string[]>([])
+  const [selectedDifficulty, setSelectedDifficulty] = useState('mid')
+  const [emailNotifications, setEmailNotifications] = useState(true)
 
-  if (!user) {
+  useEffect(() => {
+    if (preferences) {
+      setSelectedRoles(preferences.preferredRoles || [])
+      setSelectedDifficulty(preferences.defaultDifficulty || 'mid')
+      setEmailNotifications(preferences.emailNotifications ?? true)
+    }
+  }, [preferences])
+
+  if (!session?.user) {
     return <div>Please log in to view your profile.</div>
   }
 
   const difficulties = ['entry', 'mid', 'senior', 'expert']
-  const questionTypes = [
-    { id: 'technical', label: '⚙️ Technical', description: 'Technical implementation questions' },
-    { id: 'case-study', label: '📊 Case Study', description: 'Business case analysis' },
-    { id: 'situational', label: '🎯 Situational', description: 'Scenario-based questions' },
-    { id: 'leadership', label: '👥 Leadership', description: 'Management and leadership' }
+  const roles = [
+    { id: 'engineering', label: '⚙️ Engineering', description: 'Software engineering roles' },
+    { id: 'product', label: '📊 Product', description: 'Product management roles' },
+    { id: 'marketing', label: '🎯 Marketing', description: 'Marketing and growth roles' },
+    { id: 'sales', label: '💼 Sales', description: 'Sales and business development' },
+    { id: 'data-science', label: '📈 Data Science', description: 'Data analysis and ML roles' },
+    { id: 'operations', label: '⚡ Operations', description: 'Operations and business roles' }
   ]
 
-  const handleDifficultyToggle = (difficulty: string) => {
-    const updated = selectedDifficulties.includes(difficulty)
-      ? selectedDifficulties.filter(d => d !== difficulty)
-      : [...selectedDifficulties, difficulty]
-    setSelectedDifficulties(updated)
+  const handleRoleToggle = (roleId: string) => {
+    const updated = selectedRoles.includes(roleId)
+      ? selectedRoles.filter(r => r !== roleId)
+      : [...selectedRoles, roleId]
+    setSelectedRoles(updated)
   }
 
-  const handleQuestionTypeToggle = (type: string) => {
-    const updated = selectedQuestionTypes.includes(type)
-      ? selectedQuestionTypes.filter(t => t !== type)
-      : [...selectedQuestionTypes, type]
-    setSelectedQuestionTypes(updated)
-  }
-
-  const handleSavePreferences = () => {
-    updatePreferences({
-      defaultDifficulty: selectedDifficulties,
-      defaultQuestionTypes: selectedQuestionTypes
+  const handleSavePreferences = async () => {
+    const success = await updatePreferences({
+      preferredRoles: selectedRoles,
+      defaultDifficulty: selectedDifficulty,
+      emailNotifications
     })
-    alert('Preferences saved!')
+    
+    if (success) {
+      alert('Preferences saved!')
+    } else {
+      alert('Failed to save preferences. Please try again.')
+    }
   }
 
   const getDifficultyColor = (difficulty: string) => {
@@ -65,36 +74,55 @@ export function UserProfile() {
           <div>
             <h1 className="text-2xl font-bold text-gray-900 mb-2">User Profile</h1>
             <p className="text-gray-600">
-              <strong>Name:</strong> {user.name}
+              <strong>Name:</strong> {session.user.name || 'Not provided'}
             </p>
             <p className="text-gray-600">
-              <strong>Email:</strong> {user.email}
-            </p>
-            <p className="text-gray-600">
-              <strong>Bookmarks:</strong> {user.bookmarks.length} questions
+              <strong>Email:</strong> {session.user.email}
             </p>
           </div>
-          <Button variant="outline" onClick={logout}>
+          <Button variant="outline" onClick={() => signOut()}>
             Sign Out
           </Button>
         </div>
       </Card>
 
+     
+
       <Card className="p-6 mb-6">
-        <h2 className="text-xl font-semibold mb-4">Question Preferences</h2>
+        <h2 className="text-xl font-semibold mb-4">Preferences</h2>
         <p className="text-gray-600 mb-6">
-          Set your default preferences for question filtering. These will be automatically applied when you browse questions.
+          Set your default preferences for question filtering and notifications.
         </p>
 
         <div className="mb-6">
-          <h3 className="font-medium mb-3">Preferred Difficulty Levels</h3>
+          <h3 className="font-medium mb-3">Preferred Roles</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {roles.map(role => (
+              <button
+                key={role.id}
+                onClick={() => handleRoleToggle(role.id)}
+                className={`p-4 rounded-lg border-2 text-left transition-colors ${
+                  selectedRoles.includes(role.id)
+                    ? 'bg-blue-50 border-blue-300 text-blue-900'
+                    : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100'
+                }`}
+              >
+                <div className="font-medium">{role.label}</div>
+                <div className="text-sm opacity-75">{role.description}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="mb-6">
+          <h3 className="font-medium mb-3">Default Difficulty Level</h3>
           <div className="flex flex-wrap gap-2">
             {difficulties.map(difficulty => (
               <button
                 key={difficulty}
-                onClick={() => handleDifficultyToggle(difficulty)}
+                onClick={() => setSelectedDifficulty(difficulty)}
                 className={`px-4 py-2 rounded-md border-2 transition-colors capitalize ${
-                  selectedDifficulties.includes(difficulty)
+                  selectedDifficulty === difficulty
                     ? getDifficultyColor(difficulty)
                     : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100'
                 }`}
@@ -106,27 +134,23 @@ export function UserProfile() {
         </div>
 
         <div className="mb-6">
-          <h3 className="font-medium mb-3">Preferred Question Types</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {questionTypes.map(type => (
-              <button
-                key={type.id}
-                onClick={() => handleQuestionTypeToggle(type.id)}
-                className={`p-4 rounded-lg border-2 text-left transition-colors ${
-                  selectedQuestionTypes.includes(type.id)
-                    ? 'bg-blue-50 border-blue-300 text-blue-900'
-                    : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100'
-                }`}
-              >
-                <div className="font-medium">{type.label}</div>
-                <div className="text-sm opacity-75">{type.description}</div>
-              </button>
-            ))}
-          </div>
+          <label className="flex items-center gap-3">
+            <input
+              type="checkbox"
+              checked={emailNotifications}
+              onChange={(e) => setEmailNotifications(e.target.checked)}
+              className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
+            />
+            <span className="text-sm text-gray-700">Enable email notifications</span>
+          </label>
         </div>
 
-        <Button onClick={handleSavePreferences} className="w-full md:w-auto">
-          Save Preferences
+        <Button 
+          onClick={handleSavePreferences} 
+          disabled={preferencesLoading}
+          className="w-full md:w-auto"
+        >
+          {preferencesLoading ? 'Saving...' : 'Save Preferences'}
         </Button>
       </Card>
     </div>

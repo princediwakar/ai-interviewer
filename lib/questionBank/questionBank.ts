@@ -1,110 +1,127 @@
-/**
- * Main Question Bank Implementation
- * Provides centralized access to all curated questions
- */
+// lib/questionBank/questionBank.ts
 
-import { Question } from '@/types/interview';
+import { db } from '../db';
+import { questions } from '../db/schema';
+import { eq, and, inArray, sql } from 'drizzle-orm';
+import { Question, DifficultyLevel, QuestionType } from '@/types/interview';
 import { Role, RoleInfo, QuestionBank, QuestionFilters, ROLES } from './index';
-import { ENGINEERING_QUESTIONS } from './engineering';
-import { PRODUCT_QUESTIONS } from './product';
-import { MARKETING_QUESTIONS } from './marketing';
-import { SALES_QUESTIONS } from './sales';
-import { DATA_SCIENCE_QUESTIONS } from './dataScience';
-import { OPERATIONS_QUESTIONS } from './operations';
 
-// Question bank implementation
-class QuestionBankImpl implements QuestionBank {
-  private questions: Record<Role, Question[]> = {
-    'engineering': ENGINEERING_QUESTIONS,
-    'product-management': PRODUCT_QUESTIONS,
-    'marketing': MARKETING_QUESTIONS,
-    'sales': SALES_QUESTIONS,
-    'data-science': DATA_SCIENCE_QUESTIONS,
-    'operations': OPERATIONS_QUESTIONS
+// Create a precise type for a question object selected from the database
+type DbQuestion = typeof questions.$inferSelect;
+
+// Helper to convert db question to frontend question with strong types
+function dbToFrontendQuestion(dbQuestion: DbQuestion): Question {
+  return {
+    id: dbQuestion.id,
+    text: dbQuestion.question,
+    // FIX: Assert that the generic 'string' from the DB conforms to the specific literal types
+    difficulty: dbQuestion.difficulty as DifficultyLevel,
+    type: dbQuestion.type as QuestionType,
+    // Ensure tags is always an array
+    tags: dbQuestion.tags ?? [],
   };
+}
 
-  getQuestionsByRole(role: Role): Question[] {
-    return this.questions[role] || [];
+class DbQuestionBank implements QuestionBank {
+  async getQuestionsByRole(role: Role): Promise<Question[]> {
+    const dbQuestions = await db.select().from(questions).where(eq(questions.role, role));
+    return dbQuestions.map(dbToFrontendQuestion);
   }
 
-  getQuestionsByFilters(role: Role, filters: QuestionFilters): Question[] {
-    let questions = this.getQuestionsByRole(role);
+  async getQuestionsByFilters(role: Role, filters: QuestionFilters): Promise<Question[]> {
+    const conditions = [eq(questions.role, role)];
 
-    // Apply difficulty filter
     if (filters.difficulty && filters.difficulty.length > 0) {
-      questions = questions.filter(q => filters.difficulty!.includes(q.difficulty));
+      conditions.push(inArray(questions.difficulty, filters.difficulty));
     }
-
-    // Apply type filter
     if (filters.type && filters.type.length > 0) {
-      questions = questions.filter(q => filters.type!.includes(q.type));
+      conditions.push(inArray(questions.type, filters.type));
     }
+    
+    let dbQuestions = await db.select().from(questions).where(and(...conditions));
 
-    // Apply tags filter
+    // Filter by tags in memory after the main query
     if (filters.tags && filters.tags.length > 0) {
-      questions = questions.filter(q => 
-        filters.tags!.some(tag => q.tags.includes(tag))
-      );
+        dbQuestions = dbQuestions.filter(q =>
+            filters.tags!.some(tag => (q.tags ?? []).includes(tag))
+        );
     }
 
-    return questions;
+    return dbQuestions.map(dbToFrontendQuestion);
   }
 
-  getAllRoles(): RoleInfo[] {
+  async getAllRoles(): Promise<RoleInfo[]> {
+    const result = await db.select({
+        role: questions.role,
+        count: sql<number>`count(${questions.id})`
+    }).from(questions).groupBy(questions.role);
+
+    const roleCounts = result.reduce((acc, row) => {
+        acc[row.role as Role] = Number(row.count);
+        return acc;
+    }, {} as Record<Role, number>);
+
     return ROLES.map(role => ({
       ...role,
-      questionCount: this.questions[role.id]?.length || 0
+      questionCount: roleCounts[role.id] || 0
     }));
   }
 
-  // Get all unique tags across all questions for a role
-  getTagsForRole(role: Role): string[] {
-    const questions = this.getQuestionsByRole(role);
-    const allTags = questions.flatMap(q => q.tags);
+  async getTagsForRole(role: Role): Promise<string[]> {
+    const result = await db.selectDistinct({ tags: questions.tags }).from(questions).where(eq(questions.role, role));
+    const allTags = result.flatMap(row => row.tags ?? []);
     return [...new Set(allTags)].sort();
   }
 
-  // Get questions by search term
-  searchQuestions(role: Role, searchTerm: string): Question[] {
-    const questions = this.getQuestionsByRole(role);
-    const term = searchTerm.toLowerCase();
-    
-    return questions.filter(q => 
-      q.text.toLowerCase().includes(term) ||
-      q.tags.some(tag => tag.toLowerCase().includes(term))
-    );
+  async searchQuestions(role: Role, searchTerm: string): Promise<Question[]> {
+      const dbQuestions = await this.getQuestionsByRole(role);
+      const term = searchTerm.toLowerCase();
+      return dbQuestions.filter(q =>
+        q.text.toLowerCase().includes(term) ||
+        q.tags.some(tag => tag.toLowerCase().includes(term))
+      );
   }
 
-  // Get total question count across all roles
-  getTotalQuestionCount(): number {
-    return Object.values(this.questions).reduce((total, roleQuestions) => 
-      total + roleQuestions.length, 0
-    );
+  async getTotalQuestionCount(): Promise<number> {
+      const result = await db.select({
+          count: sql<number>`count(${questions.id})`
+      }).from(questions);
+      return Number(result[0].count);
+  }
+
+  async getQuestionById(id: string): Promise<Question | null> {
+    const result = await db.select().from(questions).where(eq(questions.id, id));
+    if (result.length === 0) {
+        return null;
+    }
+    return dbToFrontendQuestion(result[0]);
   }
 }
 
-// Export singleton instance
-export const questionBank = new QuestionBankImpl();
+export const questionBank = new DbQuestionBank();
 
-// Export utility functions
-export function getQuestionsByRole(role: Role): Question[] {
-  return questionBank.getQuestionsByRole(role);
+export async function getQuestionsByRole(role: Role): Promise<Question[]> {
+    return questionBank.getQuestionsByRole(role);
 }
 
-export function filterQuestions(role: Role, filters: QuestionFilters): Question[] {
-  return questionBank.getQuestionsByFilters(role, filters);
+export async function filterQuestions(role: Role, filters: QuestionFilters): Promise<Question[]> {
+    return questionBank.getQuestionsByFilters(role, filters);
 }
 
-export function getAllRoles(): RoleInfo[] {
-  return questionBank.getAllRoles();
+export async function getAllRoles(): Promise<RoleInfo[]> {
+    return questionBank.getAllRoles();
 }
 
-export function searchQuestions(role: Role, searchTerm: string): Question[] {
-  return questionBank.searchQuestions(role, searchTerm);
+export async function searchQuestions(role: Role, searchTerm: string): Promise<Question[]> {
+    return questionBank.searchQuestions(role, searchTerm);
 }
 
-export function getTagsForRole(role: Role): string[] {
-  return questionBank.getTagsForRole(role);
+export async function getTagsForRole(role: Role): Promise<string[]> {
+    return questionBank.getTagsForRole(role);
+}
+
+export async function getQuestionById(id: string): Promise<Question | null> {
+    return questionBank.getQuestionById(id);
 }
 
 export { type Role, type RoleInfo, type QuestionFilters } from './index';

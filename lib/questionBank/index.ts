@@ -1,9 +1,10 @@
+// lib/questionBank/index.ts
 /**
  * Question Bank - Curated questions organized by role
  * Separate from JD-based AI generation
  */
 
-import { Question } from '@/types/interview';
+import { DifficultyLevel, Question, QuestionType } from '@/types/interview';
 
 export type Role = 
   | 'engineering'
@@ -66,23 +67,20 @@ export const ROLES: RoleInfo[] = [
   }
 ];
 
-// Question bank interface
-export interface QuestionBank {
-  getQuestionsByRole(role: Role): Question[];
-  getQuestionsByFilters(role: Role, filters: QuestionFilters): Question[];
-  getAllRoles(): RoleInfo[];
-}
-
 export interface QuestionFilters {
-  difficulty?: Question['difficulty'][];
-  type?: Question['type'][];
+  difficulty?: DifficultyLevel[];
+  type?: QuestionType[];
   tags?: string[];
 }
 
-// Implementation will be added in individual role files
-export * from './engineering';
-export * from './product';
-export * from './marketing';
-export * from './sales';
-export * from './dataScience';
-export * from './operations';
+// FIX: Ensure all method signatures in the interface ONLY return a Promise<T>.
+// This will correctly match your async class implementation.
+export interface QuestionBank {
+  getQuestionsByRole(role: Role): Promise<Question[]>;
+  getQuestionsByFilters(role: Role, filters: QuestionFilters): Promise<Question[]>;
+  getAllRoles(): Promise<RoleInfo[]>;
+  getTagsForRole(role: Role): Promise<string[]>;
+  searchQuestions(role: Role, searchTerm: string): Promise<Question[]>;
+  getTotalQuestionCount(): Promise<number>;
+  getQuestionById(id: string): Promise<Question | null>;
+}
