@@ -3,20 +3,41 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { headers } from "next/headers"
-import { upsertUserPreferences } from "@/lib/db/queries"
+import { getUserPreferences, upsertUserPreferences } from "@/lib/db/queries"
 
-// A full UserPreferences type
-interface UserPreferences {
-  preferredRoles: string[];
-  defaultDifficulty: 'entry' | 'mid' | 'senior' | 'expert';
-  emailNotifications: boolean;
-}
-
-// A type for the update payload (all fields are optional)
-type UserPreferencesUpdate = Partial<UserPreferences>;
+// Define a specific type for preference updates
+type UserPreferencesUpdate = {
+  preferredRoles?: string[];
+  defaultDifficulty?: 'entry' | 'mid' | 'senior' | 'expert';
+  emailNotifications?: boolean;
+};
 
 export async function GET(_request: NextRequest) {
-  // ... (GET function is unchanged and correct)
+  try {
+    const session = await auth.api.getSession({
+      headers: await headers()
+    })
+
+    if (!session?.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const preferences = await getUserPreferences(session.user.id)
+    
+    return NextResponse.json({ 
+      preferences: preferences || {
+        preferredRoles: [],
+        defaultDifficulty: "mid",
+        emailNotifications: true
+      }
+    })
+  } catch (error) {
+    console.error("Error fetching preferences:", error)
+    return NextResponse.json(
+      { error: "Failed to fetch preferences" }, 
+      { status: 500 }
+    )
+  }
 }
 
 export async function PUT(request: NextRequest) {

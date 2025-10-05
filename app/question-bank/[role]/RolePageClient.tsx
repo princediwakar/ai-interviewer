@@ -5,7 +5,6 @@ import { QuestionBrowser } from '@/components/QuestionBrowser';
 import { type Role } from '@/lib/questionBank/questionBank';
 import { Navigation } from '@/components/Navigation';
 import { useRouter } from 'next/navigation';
-import { AuthProvider } from '@/lib/simple-auth';
 import { Question } from '@/types/interview';
 
 interface RolePageClientProps {
@@ -18,7 +17,6 @@ export default function RolePageClient({ role, questions, availableTags }: RoleP
   const router = useRouter();
 
   return (
-    <AuthProvider>
       <div className="min-h-screen bg-white">
         <Navigation subtitle="Question Bank" />
         <QuestionBrowser
@@ -32,6 +30,5 @@ export default function RolePageClient({ role, questions, availableTags }: RoleP
           }}
         />
       </div>
-    </AuthProvider>
   );
 }

@@ -2,7 +2,6 @@
 import { RoleSelection } from '@/components/RoleSelection';
 import { getAllRoles, getQuestionsByRole } from '@/lib/questionBank/questionBank';
 import { Navigation } from '@/components/Navigation';
-import { AuthProvider } from '@/lib/simple-auth';
 
 export default async function QuestionBankPage() {
   const roles = await getAllRoles();
@@ -32,11 +31,9 @@ export default async function QuestionBankPage() {
   }));
 
   return (
-    <AuthProvider>
       <div className="min-h-screen bg-white">
         <Navigation subtitle="Question Bank" />
         <RoleSelection roles={rolesWithDetails} />
       </div>
-    </AuthProvider>
   );
 }
